@@ -1,0 +1,2426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<base target="_top">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Purifika · Sistema de Tickets</title>
+<link rel="icon" type="image/png" href="https://i.ibb.co/QF9XQCdw/purifika-favicon-64.png">
+<link rel="shortcut icon" type="image/png" href="https://i.ibb.co/QF9XQCdw/purifika-favicon-64.png">
+<link rel="apple-touch-icon" href="https://i.ibb.co/QF9XQCdw/purifika-favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600;700;800&family=Open+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<!-- Librerías para exportar (se cargan una sola vez, se usan solo al descargar) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+<style>
+  :root{
+    --charcoal:#54565A; --charcoal-dark:#2B3643; --navy:#2B3643; --cyan:#2DBDC9; --cyan-dark:#1AA3AA;
+    --mist:#F4F8F9; --paper:#FFFFFF; --line:#EEEFF3; --ink:#2C2E30; --ink-soft:#75787B;
+    --st-recibido:#8A93AB; --st-atendido:#2DBDC9; --st-proceso:#E0A02E; --st-resuelto:#3FA66B; --st-cerrado:#54565A;
+    --radius:10px;
+    --header-h:50px;
+    --sidebar-w:235px;
+    --input-border:#C2CAD8;
+    --font-display:'Poppins','Open Sans',Calibri,'Segoe UI',Tahoma,Arial,sans-serif;
+    --font-body:'Open Sans',Calibri,'Segoe UI',Tahoma,Arial,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;overflow-x:hidden;}
+  body{font-family:var(--font-body);background:var(--mist);color:var(--ink);-webkit-font-smoothing:antialiased;}
+
+  /* ===================== APP SHELL (réplica del portal Purifika) ===================== */
+  .app-shell{min-height:100vh;}
+
+  .topbar{
+    height:var(--header-h);background:var(--navy);position:fixed;top:0;left:0;right:0;
+    display:flex;align-items:stretch;z-index:100;
+  }
+  .topbar::after{content:"";position:absolute;left:0;right:0;bottom:0;height:4px;
+    background:linear-gradient(90deg,var(--cyan) 0%, var(--cyan) 40%, transparent 40%, transparent 60%, var(--cyan) 60%, var(--cyan) 100%);
+    opacity:.9;z-index:2;}
+  .topbar-brand-zone{
+    width:var(--sidebar-w);flex:none;background:#13575D;display:flex;align-items:center;
+    padding:0;
+  }
+  .topbar-brand{display:flex;align-items:center;min-width:0;margin:4px 0 0 15px;}
+  .topbar-logo{height:41px;width:auto;flex:none;display:block;}
+  .sidebar-toggle-btn{
+    width:35px;height:35px;flex:none;border-radius:50px;border:none;background:#39B9C4;color:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;
+    margin:7px 15px 7px auto;
+  }
+  .sidebar-toggle-btn:hover{background:var(--cyan-dark);}
+  .sidebar-toggle-btn svg{width:16px;height:16px;}
+  .topbar-content-zone{flex:1;display:flex;align-items:center;justify-content:flex-end;padding:0 22px;min-width:0;overflow:hidden;}
+  .topbar-title{color:#CCCCCC;font-size:12px;font-weight:400;font-family:var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  @media(max-width:760px){
+    .topbar-brand-zone{width:auto;flex:1;}
+    .topbar-content-zone{display:none;}
+  }
+
+  .app-body{position:relative;margin-top:var(--header-h);}
+
+  .sidebar{
+    width:var(--sidebar-w);background:var(--cyan);padding:0 0 20px;overflow-y:auto;
+    position:fixed;top:var(--header-h);left:0;bottom:0;z-index:90;
+    transition:left .18s ease;
+  }
+  .app-shell.sidebar-collapsed .sidebar{left:calc(-1 * var(--sidebar-w));}
+  .sidebar-title{
+    color:#fff;font-size:14px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    margin:13px 0 16px 17px;font-family:var(--font-display);
+  }
+  nav.tabs{display:flex;flex-direction:column;gap:0;background:transparent;padding:0;border-radius:0;}
+  nav.tabs button{
+    display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+    border:none;background:transparent;color:#fff;font-family:var(--font-body);
+    padding:10px 15px;font-size:12px;font-weight:500;cursor:pointer;transition:.15s;
+    border-top:1px solid rgba(255,255,255,.12);
+  }
+  nav.tabs button svg{flex:none;opacity:.92;width:16px;height:16px;}
+  nav.tabs button:not(.active):hover{background:rgba(255,255,255,.1);}
+  nav.tabs button.active{background:rgba(0,0,0,.08);font-weight:700;}
+
+  .sidebar-overlay{display:none;}
+  .content-col{margin-left:var(--sidebar-w);min-width:0;display:flex;flex-direction:column;transition:margin-left .18s ease;}
+  .app-shell.sidebar-collapsed .content-col{margin-left:0;}
+  .breadcrumb-bar{
+    display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px 12px;
+    padding:11px 20px;background:#fff;border-bottom:1px solid #E7ECF1;
+  }
+  .breadcrumb{font-size:12px;color:#888888;font-weight:400;display:flex;align-items:center;gap:5px;min-width:0;flex-wrap:wrap;}
+  .breadcrumb .home-link{cursor:pointer;}
+  .breadcrumb .home-link:hover{color:var(--cyan-dark);text-decoration:underline;}
+  .breadcrumb .sep{opacity:.7;font-size:5px;color:#AAAAAA;flex:none;}
+  .breadcrumb .current{color:#888888;font-weight:400;}
+  .today-date{font-size:12px;color:#888888;text-transform:uppercase;font-weight:400;white-space:nowrap;flex:none;}
+
+  main{max-width:1180px;width:100%;padding:28px 32px 44px;box-sizing:border-box;}
+  .view{display:none;} .view.active{display:block;}
+  .panel{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:28px;
+    box-shadow:0 1px 2px rgba(43,54,67,.04);}
+  h2.view-title{font-size:20px;margin:0 0 4px;color:#5A5A5A;font-family:var(--font-display);font-weight:700;}
+  p.view-sub{margin:0 0 24px;color:var(--ink-soft);font-size:14px;}
+  p.view-sub-desc{margin:0 0 24px;color:var(--ink-soft);font-size:12px;line-height:1.5;max-width:720px;}
+
+  /* ===================== FORMULARIOS ===================== */
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px 20px;}
+  .field{display:flex;flex-direction:column;gap:5px;} .field.full{grid-column:1 / -1;}
+  label{font-size:12px;font-weight:700;color:#333333;}
+  .required-mark{color:#B5473F;font-size:11px;font-weight:700;}
+  input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],select,textarea{
+    font-family:var(--font-body);font-size:12px;line-height:1.3;padding:0 8px;
+    border:1px solid var(--input-border);border-radius:0;background:#FFFFFF;color:var(--ink);
+    outline:none;transition:.15s;width:100%;}
+  input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],select{height:30px;}
+  select{-webkit-appearance:none;-moz-appearance:none;appearance:none;cursor:pointer;padding-right:30px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='11' height='7' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' stroke='%2375787B' stroke-width='1.6' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;background-size:11px 7px;}
+  select::-ms-expand{display:none;}
+  input:focus,select:focus,textarea:focus{border-color:var(--cyan);background:#fff;box-shadow:0 0 0 3px rgba(37,202,210,.15);}
+  textarea{resize:vertical;min-height:90px;line-height:1.5;padding:8px;}
+  .filebox{border:1.5px dashed var(--input-border);border-radius:0;padding:16px;background:#FCFDFD;display:flex;flex-direction:column;gap:8px;}
+  .filebox input[type=file]{font-size:13px;}
+  .file-note{font-size:12px;color:var(--ink-soft);}
+  .file-list{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px;}
+  .file-chip{display:flex;align-items:center;gap:6px;background:#EFF6F7;border:1px solid var(--line);border-radius:6px;padding:5px 9px;font-size:12px;color:var(--charcoal);}
+  .file-chip img{width:22px;height:22px;object-fit:cover;border-radius:4px;}
+  .file-chip a{color:var(--cyan-dark);text-decoration:none;font-weight:700;}
+  .file-chip button{border:none;background:none;color:#B5473F;cursor:pointer;font-size:13px;font-weight:700;}
+
+  /* ===================== BOTONES (estilo botón "Acciones" del portal) ===================== */
+  .btn{font-family:var(--font-body);font-weight:700;font-size:12px;border:none;border-radius:3px;
+    padding:7px 16px;cursor:pointer;transition:.15s;}
+  .btn-primary{background:var(--cyan);color:#fff;} .btn-primary:hover{background:var(--cyan-dark);color:#fff;}
+  .btn-primary:disabled{opacity:.6;cursor:not-allowed;}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--charcoal);} .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan-dark);}
+  .btn-sm{padding:6px 12px;font-size:12px;border-radius:3px;}
+  .btn-row{margin-top:22px;display:flex;gap:12px;align-items:center;}
+
+  .banner{background:#EFFBFB;border:1px solid #BFE9EB;border-left:4px solid var(--cyan);border-radius:6px;padding:12px 16px;font-size:13px;color:var(--charcoal-dark);margin-bottom:22px;}
+  .toast{position:fixed;bottom:24px;right:24px;background:var(--charcoal-dark);color:#fff;padding:14px 20px;border-radius:6px;font-size:13.5px;box-shadow:0 8px 24px rgba(0,0,0,.25);max-width:340px;z-index:999;opacity:0;transform:translateY(12px);transition:.25s;border-left:4px solid var(--cyan);}
+  .toast.show{opacity:1;transform:translateY(0);}
+  .confirm-card{text-align:center;padding:36px 20px;}
+  .confirm-card .brand-mark{width:44px;height:44px;border-radius:50%;background:radial-gradient(circle at 35% 30%, var(--cyan) 0%, var(--cyan-dark) 70%);position:relative;box-shadow:0 0 0 3px rgba(45,189,201,.18);}
+  .confirm-card .brand-mark::before{content:"";position:absolute;left:50%;top:50%;width:16px;height:16px;background:var(--navy);border-radius:50% 50% 50% 0;transform:translate(-50%,-60%) rotate(-45deg);}
+  .confirm-card .folio-big{font-size:29px;font-weight:800;color:var(--cyan-dark);letter-spacing:.5px;margin:10px 0 4px;font-family:var(--font-display);}
+  .search-row{display:flex;gap:10px;margin-bottom:24px;align-items:center;} .search-row input{flex:1;}
+
+  .stepper{display:flex;align-items:center;margin:22px 0 8px;}
+  .step{display:flex;flex-direction:column;align-items:center;flex:1;position:relative;}
+  .step .drop{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--line);display:flex;align-items:center;justify-content:center;transition:.2s;}
+  .step .drop span{transform:rotate(45deg);font-size:11px;font-weight:800;color:#fff;}
+  .step.done .drop{background:var(--cyan);} .step.current .drop{background:var(--st-proceso);box-shadow:0 0 0 5px rgba(224,160,46,.2);}
+  .step .lbl{margin-top:10px;font-size:11.5px;color:var(--ink-soft);text-align:center;font-weight:600;}
+  .step.done .lbl,.step.current .lbl{color:var(--charcoal-dark);}
+  .step .bar{position:absolute;top:15px;left:-50%;width:100%;height:3px;background:var(--line);z-index:-1;}
+  .step.done .bar{background:var(--cyan);} .step:first-child .bar{display:none;}
+
+  .ticket-detail{margin-top:26px;border-top:1px solid var(--line);padding-top:22px;}
+  .kv{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;margin-bottom:20px;}
+  .kv div span.k{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:var(--ink-soft);font-weight:700;}
+  .kv div span.v{font-size:14px;color:var(--ink);}
+  .desc-box{background:var(--mist);border-radius:6px;padding:14px 16px;font-size:14px;line-height:1.5;margin-bottom:20px;white-space:pre-wrap;}
+  .history{list-style:none;margin:0;padding:0;}
+  .history li{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:13.5px;}
+  .history li:last-child{border-bottom:none;}
+  .history .dot{width:8px;height:8px;border-radius:50%;background:var(--cyan);margin-top:5px;flex:none;}
+  .history .h-meta{color:var(--ink-soft);font-size:12px;}
+
+  /* ===================== PANEL DE ASESORES (tabla estilo DataTable del portal) ===================== */
+  .advisor-bar{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;margin-bottom:22px;}
+  .advisor-id{display:flex;align-items:center;gap:10px;flex-wrap:wrap;} .advisor-id input{width:200px;}
+  .filters{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip-filter{border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;color:var(--charcoal);transition:.15s;}
+  .chip-filter.active{background:var(--charcoal-dark);color:#fff;border-color:var(--charcoal-dark);}
+  .date-filter-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .date-filter-row input[type=date]{width:auto;min-width:140px;}
+  .consulta-count{font-size:13px;color:var(--ink-soft);margin:0 0 14px;}
+  .btn-icon-circle{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line);background:#fff;
+    display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft);flex:none;
+    transition:.15s;padding:0;}
+  .btn-icon-circle:hover{border-color:#B5473F;color:#B5473F;background:#FBEAE8;}
+  .btn-icon-circle svg{width:15px;height:15px;}
+  table.tk-table{width:100%;border-collapse:collapse;font-size:13px;}
+  table.tk-table th{text-align:left;padding:10px 14px;color:var(--ink-soft);font-size:11px;text-transform:uppercase;letter-spacing:.4px;font-weight:700;border-bottom:2px solid var(--line);}
+  table.tk-table td{padding:13px 14px;border-bottom:1px solid var(--line);vertical-align:top;}
+  table.tk-table tr.row-clickable{cursor:pointer;} table.tk-table tr.row-clickable:hover{background:#FAFCFD;}
+  .badge{display:inline-block;padding:4px 11px;border-radius:999px;font-size:11px;font-weight:700;color:#fff;letter-spacing:.2px;}
+  .btn-trash{border:none;background:none;cursor:pointer;font-size:15px;padding:4px 8px;border-radius:6px;opacity:.65;}
+  .btn-trash:hover{opacity:1;background:#FBEAE8;}
+  .empty-state{text-align:center;padding:50px 20px;color:var(--ink-soft);}
+  .empty-state .drop-big{width:54px;height:54px;margin:0 auto 14px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:linear-gradient(135deg,var(--cyan),var(--cyan-dark));opacity:.35;}
+
+  /* ===================== DASHBOARD (Panel de asesores) ===================== */
+  .dash-period-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+  .dash-period-label{font-size:12px;color:var(--ink-soft);margin:0 0 18px;}
+  .dash-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .dash-kpi{background:#fff;border:1px solid var(--line);border-left:4px solid var(--cyan);border-radius:8px;padding:15px 18px;}
+  .dash-kpi-num{font-size:26px;font-weight:800;color:var(--charcoal-dark);font-family:var(--font-display);line-height:1.1;}
+  .dash-kpi-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px;margin-top:5px;}
+  .dash-kpi-sub{font-size:11.5px;color:var(--ink-soft);margin-top:5px;}
+  .dash-kpi.total{border-left-color:var(--charcoal-dark);}
+  .dash-kpi.resueltos{border-left-color:var(--st-resuelto);}
+  .dash-kpi.pendientes{border-left-color:var(--st-proceso);}
+  .dash-kpi.efectividad{border-left-color:var(--cyan);}
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+  .dash-panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 20px;}
+  .dash-panel h3{margin:0 0 14px;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:var(--charcoal-dark);font-weight:700;}
+  .dash-bar-row{display:flex;align-items:center;gap:10px;margin-bottom:11px;}
+  .dash-bar-row:last-child{margin-bottom:0;}
+  .dash-bar-label{width:44%;flex:none;font-size:12.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .dash-bar-track{flex:1;height:9px;background:var(--mist);border-radius:5px;overflow:hidden;}
+  .dash-bar-fill{height:100%;border-radius:5px;transition:width .3s;}
+  .dash-bar-count{width:26px;flex:none;text-align:right;font-size:12px;font-weight:700;color:var(--charcoal-dark);}
+  .dash-donut-wrap{display:flex;align-items:center;gap:22px;flex-wrap:wrap;}
+  .dash-legend-row{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink);margin-bottom:8px;}
+  .dash-legend-row:last-child{margin-bottom:0;}
+  .dash-legend-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+  .dash-legend-label{flex:1;}
+  .dash-legend-count{font-weight:700;color:var(--charcoal-dark);}
+  .dash-summary{background:var(--mist);border-radius:8px;padding:16px 20px;font-size:13.5px;line-height:1.6;color:var(--charcoal-dark);margin-top:16px;}
+  @media(max-width:820px){.dash-grid{grid-template-columns:1fr;} .dash-kpis{grid-template-columns:repeat(2,1fr);}}
+  @media(max-width:520px){.dash-kpis{grid-template-columns:1fr;} .dash-bar-label{width:38%;}}
+
+  .modal-backdrop{position:fixed;inset:0;background:rgba(30,32,33,.5);display:none;align-items:flex-start;justify-content:center;padding:40px 20px;z-index:500;overflow:auto;}
+  .modal-backdrop.show{display:flex;}
+  .modal{background:#fff;border-radius:var(--radius);max-width:720px;width:100%;padding:30px;box-shadow:0 20px 60px rgba(0,0,0,.3);}
+  .modal-close{float:right;border:none;background:none;font-size:20px;cursor:pointer;color:var(--ink-soft);}
+  .update-box{background:var(--mist);border-radius:6px;padding:16px;margin-top:18px;}
+  .update-box .row{display:flex;gap:10px;margin-top:10px;flex-wrap:wrap;}
+  .update-box select{flex:1;min-width:160px;}
+  .update-box textarea{width:100%;margin-top:10px;}
+  .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(0,0,0,.15);border-top-color:var(--cyan-dark);border-radius:50%;animation:spin .7s linear infinite;vertical-align:-2px;margin-right:6px;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  footer.app-footer{text-align:center;padding:24px;color:var(--ink-soft);font-size:12px;}
+
+  /* ===================== RESPONSIVE ===================== */
+  @media(max-width:720px){
+    .sidebar{box-shadow:6px 0 24px rgba(0,0,0,.22);}
+    .content-col{margin-left:0;}
+    .grid,.kv{grid-template-columns:1fr;}
+    main{padding:20px 18px 36px;}
+    .breadcrumb-bar{padding:12px 18px;}
+    .panel{padding:20px;}
+    .modal-backdrop{padding:16px 12px;}
+    .modal{padding:20px;border-radius:12px;}
+    #panel-table-wrap, #consulta-resultados{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+    table.tk-table{font-size:12px;min-width:560px;}
+    .advisor-bar{gap:10px;}
+    .dash-bar-label{width:34%;}
+    .dash-panel{padding:16px;}
+  }
+  @media(max-width:480px){
+    .btn-icon-circle{width:34px;height:34px;}
+    .chip-filter{padding:7px 12px;font-size:11.5px;min-height:32px;}
+    .modal{padding:16px;}
+    .dash-kpi-num{font-size:22px;}
+    .dash-kpis{gap:10px;}
+    .dash-kpi{padding:12px 14px;}
+    /* 16px evita el zoom automático de iOS Safari al enfocar un campo */
+    input[type=text],input[type=email],input[type=tel],input[type=password],input[type=date],select,textarea{font-size:16px;}
+    .today-date{display:none;}
+    .breadcrumb{font-size:11px;}
+  }
+</style>
+
+</head>
+<body>
+<div class="app-shell" id="app-shell">
+
+  <header class="topbar">
+    <div class="topbar-brand-zone">
+      <div class="topbar-brand">
+        <img class="topbar-logo" src="https://portal.purifika.com.mx/assets/layouts/layout/img/logo-purifik.svg" alt="Purifika">
+      </div>
+      <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" aria-label="Abrir menú" title="Abrir menú">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="topbar-content-zone">
+      <span class="topbar-title">Sistema de Tickets</span>
+    </div>
+  </header>
+
+  <div class="app-body">
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-title">Menú Principal</div>
+      <nav class="tabs">
+        <button data-view="nuevo" class="active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v5"/><path d="M3 12v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/><path d="M3 12h18"/><path d="M12 8v8"/><path d="M8 12h8"/></svg>
+          Levantar ticket
+        </button>
+        <button data-view="consulta">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          Consultar mi ticket
+        </button>
+        <button data-view="panel">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+          Panel de asesores
+        </button>
+      </nav>
+    </aside>
+
+    <div class="content-col">
+      <div class="breadcrumb-bar">
+        <div class="breadcrumb"><span class="home-link" id="breadcrumb-home">Home</span><span class="sep" id="breadcrumb-sep">&bull;</span><span class="current" id="breadcrumb-current">Levantar ticket</span></div>
+        <div class="today-date" id="today-date"></div>
+      </div>
+
+      <main>
+  <!-- NUEVO TICKET -->
+  <section class="view active" id="view-nuevo">
+    <div class="panel">
+      <h2 class="view-title">Levantar un ticket</h2>
+      <p class="view-sub-desc">Describa con el mayor detalle posible el problema que presenta con el portal Purifika o con algún equipo: qué ocurrió, cuándo comenzó, qué equipo o sección está involucrada y qué ha intentado hacer para resolverlo. Mientras más contexto incluya, más rápido podremos atenderlo. Al enviar su ticket recibirá un número de folio para dar seguimiento y una confirmación por correo electrónico.</p>
+      <p style="margin:-16px 0 22px;font-size:12px;color:var(--ink-soft);">Los campos marcados con <span class="required-mark">*</span> son obligatorios.</p>
+      <div id="form-wrap">
+        <div class="grid">
+          <div class="field"><label>Nombre completo <span class="required-mark">*</span></label><input type="text" id="f-nombre" placeholder="Ej. Juan Pérez López"></div>
+          <div class="field">
+            <label>Cargo</label>
+<select id="f-cargo-select" onchange="App.handleCargoSelect()">
+              <option value="">Selecciona el cargo</option>
+              <option value="Almacenista">Almacenista</option>
+              <option value="Asesor Comercial">Asesor Comercial</option>
+              <option value="Asesor de Franquicias">Asesor de Franquicias</option>
+              <option value="Atención a Clientes">Atención a Clientes</option>
+              <option value="Auxiliar Contable">Auxiliar Contable</option>
+              <option value="Auxiliar de Limpieza">Auxiliar de Limpieza</option>
+              <option value="Auxiliar de Recursos Humanos">Auxiliar de Recursos Humanos</option>
+              <option value="Ayudante de Instalaciones">Ayudante de Instalaciones</option>
+              <option value="Becario CONALEP Dual">Becario CONALEP Dual</option>
+              <option value="Becario Rotary">Becario Rotary</option>
+              <option value="Coordinador Administrativo">Coordinador Administrativo</option>
+              <option value="Coordinador de Sistema de Gestión de Calidad">Coordinador de Sistema de Gestión de Calidad</option>
+              <option value="Ejecutivo de Facturación y Cobranza">Ejecutivo de Facturación y Cobranza</option>
+              <option value="Encargado de Almacén">Encargado de Almacén</option>
+              <option value="Especialista de Control de Calidad">Especialista de Control de Calidad</option>
+              <option value="Franquiciatario">Franquiciatario</option>
+              <option value="Gerente Administrativo">Gerente Administrativo</option>
+              <option value="Gerente Comercial">Gerente Comercial</option>
+              <option value="Gerente de Franquicias">Gerente de Franquicias</option>
+              <option value="Gerente de Operaciones">Gerente de Operaciones</option>
+              <option value="Gerente de Recursos Humanos">Gerente de Recursos Humanos</option>
+              <option value="Ingeniero de Proyectos">Ingeniero de Proyectos</option>
+              <option value="Ingeniero de Servicio">Ingeniero de Servicio</option>
+              <option value="Mensajero">Mensajero</option>
+              <option value="Supervisor / Encargado de Instalaciones">Supervisor / Encargado de Instalaciones</option>
+              <option value="Supervisor de Embarques">Supervisor de Embarques</option>
+              <option value="Supervisor de Facturación y Cobranza">Supervisor de Facturación y Cobranza</option>
+              <option value="Supervisor de Mantenimiento General">Supervisor de Mantenimiento General</option>
+              <option value="Supervisor de Producción para Franquicias">Supervisor de Producción para Franquicias</option>
+              <option value="Supervisor de Servicio">Supervisor de Servicio</option>
+              <option value="Técnico de Embarques">Técnico de Embarques</option>
+              <option value="Técnico de Ensamble">Técnico de Ensamble</option>
+              <option value="Técnico en Mantenimiento General">Técnico en Mantenimiento General</option>
+              <option value="Técnico en Refrigeración">Técnico en Refrigeración</option>
+              <option value="Técnico Instalador Jr.">Técnico Instalador Jr.</option>
+              <option value="Técnico Instalador Sr.">Técnico Instalador Sr.</option>
+              <option value="Técnico Jr.">Técnico Jr.</option>
+              <option value="Técnico Sr.">Técnico Sr.</option>
+              <option value="__otro__">Otro…</option>
+            </select>
+          </div>
+          <div class="field" id="f-cargo-other-wrap" style="display:none;">
+            <label>Especifica el cargo</label>
+            <input type="text" id="f-cargo-other" placeholder="Ej. Encargado de sucursal">
+          </div>
+          <div class="field">
+            <label>Franquicia / sucursal <span class="required-mark">*</span></label>
+<select id="f-franquicia-select" onchange="App.handleFranquiciaSelect()">
+              <option value="">Selecciona la franquicia</option>
+              <option value="AGS">AGS</option>
+              <option value="AGS2">AGS2</option>
+              <option value="BJX">BJX</option>
+              <option value="CDJ">CDJ</option>
+              <option value="CDMX1">CDMX1</option>
+              <option value="CDMX2">CDMX2</option>
+              <option value="CDMX3">CDMX3</option>
+              <option value="CDMX4">CDMX4</option>
+              <option value="CHIH">CHIH</option>
+              <option value="CHIH2">CHIH2</option>
+              <option value="CJS">CJS</option>
+              <option value="CUL">CUL</option>
+              <option value="CUL2">CUL2</option>
+              <option value="CUN">CUN</option>
+              <option value="GDL">GDL</option>
+              <option value="GUA">GUA</option>
+              <option value="GYM">GYM</option>
+              <option value="HMO">HMO</option>
+              <option value="IPTO">IPTO</option>
+              <option value="LMM">LMM</option>
+              <option value="LPZ">LPZ</option>
+              <option value="MID">MID</option>
+              <option value="MLM">MLM</option>
+              <option value="MTY">MTY</option>
+              <option value="NOG">NOG</option>
+              <option value="OBR">OBR</option>
+              <option value="PCA">PCA</option>
+              <option value="PDS">PDS</option>
+              <option value="PUE">PUE</option>
+              <option value="PUE2">PUE2</option>
+              <option value="PURIFIKA">PURIFIKA</option>
+              <option value="QRO1">QRO1</option>
+              <option value="QRO2">QRO2</option>
+              <option value="QRO3">QRO3</option>
+              <option value="REX">REX</option>
+              <option value="SJD">SJD</option>
+              <option value="SLP">SLP</option>
+              <option value="SLP2">SLP2</option>
+              <option value="SLW">SLW</option>
+              <option value="TAM">TAM</option>
+              <option value="TGZ">TGZ</option>
+              <option value="TIJ">TIJ</option>
+              <option value="TRC">TRC</option>
+              <option value="TRC2">TRC2</option>
+              <option value="TRC3">TRC3</option>
+              <option value="VER">VER</option>
+              <option value="VHS">VHS</option>
+              <option value="__otro__">Otro…</option>
+            </select>
+          </div>
+          <div class="field" id="f-franquicia-other-wrap" style="display:none;">
+            <label>Especifica la franquicia</label>
+            <input type="text" id="f-franquicia-other" placeholder="Nombre de la franquicia">
+          </div>
+          <div class="field"><label>Correo electrónico <span class="required-mark">*</span></label><input type="email" id="f-correo" placeholder="correo@ejemplo.com"></div>
+          <div class="field"><label>Teléfono (opcional)</label><input type="tel" id="f-telefono" placeholder="10 dígitos"></div>
+          <div class="field">
+            <label>Tipo de problema</label>
+<select id="f-tipo">
+              <option value="">Seleccionar problema</option>
+              <option value="Capacitacion">Capacitación</option>
+              <option value="Facturacion">Facturación / cobranza</option>
+              <option value="Portal">Problema con el portal</option>
+              <option value="Pedido">Problema con pedido</option>
+              <option value="Equipo">Problema con un equipo</option>
+              <option value="Otro">Otro</option>
+            </select>
+          </div>
+          <div class="field full"><label>Descripción del problema <span class="required-mark">*</span></label>
+            <textarea id="f-descripcion" placeholder="Describa con el mayor detalle posible qué ocurrió, cuándo comenzó y qué equipo o sección está involucrada."></textarea>
+          </div>
+          <div class="field full"><label>Fotos o video (opcional)</label>
+            <div class="filebox">
+              <input type="file" id="f-archivos" accept="image/*,video/*" multiple>
+              <p class="file-note">Los archivos se guardan en Drive y quedan ligados al ticket. Videos pesados pueden tardar más en subirse.</p>
+              <div class="file-list" id="file-list"></div>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-submit" onclick="App.submitTicket()">Enviar ticket</button>
+          <span id="form-error" style="color:#B5473F;font-size:13px;"></span>
+        </div>
+      </div>
+      <div id="confirm-wrap" style="display:none;">
+        <div class="confirm-card">
+          <div class="brand-mark" style="margin:0 auto 14px;"></div>
+          <p style="color:var(--ink-soft);margin:0;">Su ticket fue recibido. Guarde este folio para dar seguimiento.</p>
+          <div class="folio-big" id="confirm-folio"></div>
+          <p style="font-size:13px;color:var(--ink-soft);">Se envió un correo de confirmación a <span id="confirm-correo"></span>.</p>
+          <button class="btn btn-ghost" style="margin-top:14px;" onclick="App.resetForm()">Levantar otro ticket</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONSULTA -->
+  <section class="view" id="view-consulta">
+    <div class="panel">
+      <h2 class="view-title">Consultar mi ticket</h2>
+      <p class="view-sub">Ingrese su número de folio o su correo electrónico para ver el estado y el historial de atención.</p>
+      <div class="search-row">
+        <input type="text" id="c-query" placeholder="Ej. PUR-14-08-2026-01 o correo@ejemplo.com">
+        <button class="btn btn-primary" onclick="App.buscarTicket()">Buscar</button>
+      </div>
+      <div id="consulta-resultados"></div>
+    </div>
+  </section>
+
+  <!-- PANEL ASESORES -->
+  <section class="view" id="view-panel">
+    <div class="panel">
+      <h2 class="view-title">Panel de asesores</h2>
+      <p class="view-sub">Seleccione y atienda tickets, actualice el estatus y notifique el avance hasta su cierre.</p>
+      <div id="panel-locked">
+        <div class="grid" style="max-width:360px;">
+          <div class="field full">
+            <label>Selecciona tu nombre <span class="required-mark">*</span></label>
+<select id="lock-advisor-select" onchange="App.handleLockAdvisorSelect()">
+              <option value="">Selecciona tu nombre</option>
+              <option value="Eduardo Cerda">Eduardo Cerda</option>
+              <option value="Brandon Martinez">Brandon Martinez</option>
+              <option value="Karen Astorga">Karen Astorga</option>
+              <option value="Jonathan Lopez">Jonathan Lopez</option>
+              <option value="__otro__">Otro…</option>
+            </select>
+          </div>
+          <div class="field full" id="lock-advisor-other-wrap" style="display:none;">
+            <label>Especifica tu nombre</label>
+            <input type="text" id="lock-advisor-other" placeholder="Escribe tu nombre">
+          </div>
+          <div class="field full">
+            <label>Clave de acceso de asesores <span class="required-mark">*</span></label>
+            <div style="position:relative;">
+              <input type="password" id="advisor-code" placeholder="Ingresa la clave" style="padding-right:42px;">
+              <button type="button" id="toggle-code-btn" onclick="App.toggleCodeVisibility()" title="Mostrar/ocultar clave"
+                style="position:absolute;right:6px;top:50%;transform:translateY(-50%);border:none;background:none;cursor:pointer;color:var(--ink-soft);padding:4px;display:flex;align-items:center;">
+                <svg id="icon-eye" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="btn-unlock" onclick="App.unlockPanel()">Entrar</button>
+          <span id="lock-error" style="color:#B5473F;font-size:13px;"></span>
+        </div>
+      </div>
+      <div id="panel-unlocked" style="display:none;">
+        <div class="advisor-bar">
+          <div class="advisor-id">
+            <label style="margin:0;">Asesor:</label>
+<select id="advisor-select" onchange="App.handleAdvisorFilterSelect()">
+              <option value="">Todos los asesores</option>
+              <option value="Eduardo Cerda">Eduardo Cerda</option>
+              <option value="Brandon Martinez">Brandon Martinez</option>
+              <option value="Karen Astorga">Karen Astorga</option>
+              <option value="Jonathan Lopez">Jonathan Lopez</option>
+              <option value="__otro__">Otro…</option>
+            </select>
+            <input type="text" id="advisor-name-other" placeholder="Escribe el nombre" style="display:none;width:180px;" onchange="App.handleAdvisorFilterOtherChange()" onkeydown="if(event.key==='Enter'){this.blur();}">
+            <button type="button" class="btn-icon-circle" title="Limpiar filtro de asesor" onclick="App.clearAdvisorFilter()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+            </button>
+          </div>
+          <div class="filters" id="panel-subtabs">
+            <button class="chip-filter active" data-tab="tickets" onclick="App.switchPanelTab('tickets')">Tickets</button>
+            <button class="chip-filter" data-tab="dashboard" onclick="App.switchPanelTab('dashboard')">Dashboard</button>
+          </div>
+        </div>
+
+        <div id="panel-tickets-view">
+          <div class="advisor-bar" style="margin-bottom:18px;">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div id="tickets-status-filters"></div>
+              <div id="tickets-period-filters"></div>
+              <div class="date-filter-row" id="tickets-custom-dates" style="display:none;">
+                <label style="margin:0;">Desde</label>
+                <input type="date" id="tickets-date-from" onchange="App.setTicketsCustomFrom(this.value)">
+                <label style="margin:0;">Hasta</label>
+                <input type="date" id="tickets-date-to" onchange="App.setTicketsCustomTo(this.value)">
+                <button type="button" class="btn-icon-circle" title="Limpiar filtro de fechas" onclick="App.clearTicketsDateFilter()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="App.exportTicketsToExcel()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Descargar Excel
+            </button>
+          </div>
+          <div id="panel-table-wrap"></div>
+        </div>
+
+        <div id="panel-dashboard-view" style="display:none;">
+          <div class="dash-period-row">
+            <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+              <div id="dash-period-filters"></div>
+              <div class="date-filter-row" id="dash-custom-dates" style="display:none;">
+                <label style="margin:0;">Desde</label>
+                <input type="date" id="dash-date-from" onchange="App.setDashboardCustomFrom(this.value)">
+                <label style="margin:0;">Hasta</label>
+                <input type="date" id="dash-date-to" onchange="App.setDashboardCustomTo(this.value)">
+                <button type="button" class="btn-icon-circle" title="Limpiar filtro de fechas" onclick="App.clearDashboardDateFilter()">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+                </button>
+              </div>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="App.exportDashboardToPptx()" style="display:flex;align-items:center;gap:6px;white-space:nowrap;">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Descargar PPTX
+            </button>
+          </div>
+          <div id="dashboard-wrap"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+      </main>
+
+      <footer class="app-footer">Aviso de privacidad: la información proporcionada en este formulario es de carácter confidencial y de uso interno de Purifika. Será utilizada únicamente para la atención, seguimiento y resolución de su ticket, y no será compartida con terceros ajenos a este proceso. &copy; 2026 Purifika.</footer>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="modal-backdrop" id="modal-backdrop"><div class="modal" id="modal-content"></div></div>
+
+<div class="modal-backdrop" id="confirm-backdrop" style="z-index:600;">
+  <div class="modal" style="max-width:420px;">
+    <p id="confirm-message" style="font-size:14.5px;line-height:1.5;margin:0 0 22px;color:var(--ink);"></p>
+    <div style="display:flex;gap:10px;justify-content:flex-end;">
+      <button class="btn btn-ghost btn-sm" onclick="App.closeConfirm()">Cancelar</button>
+      <button class="btn btn-sm" id="confirm-action-btn" style="background:#B5473F;color:#fff;">Eliminar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const STATUSES = ["Recibido","Atendido","En proceso","Resuelto","Cerrado"];
+const STATUS_COLORS = {"Recibido":"var(--st-recibido)","Atendido":"var(--st-atendido)","En proceso":"var(--st-proceso)","Resuelto":"var(--st-resuelto)","Cerrado":"var(--st-cerrado)"};
+
+// URL del backend (Apps Script desplegado como App web). Este archivo NO depende
+// de estar alojado dentro de Apps Script — puede vivir en cualquier dominio
+// (el propio hosting del portal, GitHub Pages, un CDN, donde sea). Apps Script
+// aquí solo cumple el rol de conector hacia el Google Sheet, vía esta única URL.
+const BACKEND_API_URL = 'https://script.google.com/macros/s/AKfycbxBaEBFf9JhuWn_ASn1VfbgRJo-SDi-qtVtOhTz-ABX8dWO3tqeBzINzcilX4mfuRuD/exec';
+
+function gs(fn, ...args){
+  // Content-Type text/plain evita el preflight CORS que Apps Script no maneja.
+  return fetch(BACKEND_API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn, args })
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.error) throw new Error(data.error);
+      return data ? data.result : undefined;
+    });
+}
+
+const App = {
+  pendingFiles: [],
+  activeFilter: "Todos",
+  advisorCode: null,
+  currentAdvisorName: "",
+  consultaResults: [],
+  consultaFilter: "Todos",
+  consultaDateFrom: "",
+  consultaDateTo: "",
+  panelTab: "tickets",
+  dashboardAllTickets: null,
+  dashboardPeriod: "mes",
+  dashboardCustomFrom: "",
+  dashboardCustomTo: "",
+  asesorFilterName: "",
+  ticketsPeriod: "todos",
+  ticketsCustomFrom: "",
+  ticketsCustomTo: "",
+  lastRenderedTickets: [],
+  lastDashboardStats: null,
+  lastDashboardPeriodLabel: "",
+
+  icons: {
+    trash: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
+    paperclip: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+  },
+
+  init(){
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.addEventListener('click', ()=>App.switchView(b.dataset.view)));
+    document.getElementById('f-archivos').addEventListener('change', App.handleFiles);
+    // A propósito NO se restaura el nombre guardado en la pantalla de acceso:
+    // cada vez que se recarga la página debe mostrar "Selecciona tu nombre" en
+    // blanco, para que cada persona que use el equipo elija su propio nombre
+    // y no quede seleccionado por accidente el de quien entró antes.
+    App.renderFilters();
+    App.renderTicketsPeriodFilters();
+  },
+
+  switchView(name){
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+name).classList.add('active');
+    if(name==='panel'){
+      const saved = sessionStorage.getItem('purifika_advisor_code');
+      if(saved){
+        App.advisorCode = saved;
+        App.currentAdvisorName = localStorage.getItem('purifika_advisor_name') || '';
+        App.showUnlockedPanel();
+      }
+    }
+  },
+
+  toggleCodeVisibility(){
+    const input = document.getElementById('advisor-code');
+    const btn = document.getElementById('toggle-code-btn');
+    const EYE = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    const EYE_OFF = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.8 21.8 0 0 1 5.06-6.06M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.8 21.8 0 0 1-3.22 4.53M14.12 14.12a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    if(input.type === 'password'){ input.type = 'text'; btn.innerHTML = EYE_OFF; }
+    else { input.type = 'password'; btn.innerHTML = EYE; }
+  },
+
+  // Selector de nombre en la pantalla de acceso (candado). Es la identidad
+  // del asesor que inició sesión; se usa para Atender/Actualizar tickets.
+  handleLockAdvisorSelect(){
+    const sel = document.getElementById('lock-advisor-select').value;
+    document.getElementById('lock-advisor-other-wrap').style.display = (sel === '__otro__') ? 'block' : 'none';
+  },
+  getLockAdvisorName(){
+    const select = document.getElementById('lock-advisor-select');
+    if(select.value === '__otro__') return document.getElementById('lock-advisor-other').value.trim();
+    return select.value;
+  },
+
+  async unlockPanel(){
+    const advisorName = App.getLockAdvisorName();
+    const code = document.getElementById('advisor-code').value.trim();
+    const errEl = document.getElementById('lock-error');
+    const btn = document.getElementById('btn-unlock');
+    errEl.textContent = '';
+    if(!advisorName){ errEl.textContent = 'Selecciona tu nombre de asesor.'; return; }
+    if(!code){ errEl.textContent = 'Ingresa la clave de acceso.'; return; }
+    const originalHTML = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Cargando panel…';
+    try{
+      await gs('obtenerTickets', 'Todos', advisorName, code);
+      App.advisorCode = code;
+      App.currentAdvisorName = advisorName;
+      localStorage.setItem('purifika_advisor_name', advisorName);
+      sessionStorage.setItem('purifika_advisor_code', code);
+      App.showUnlockedPanel();
+    }catch(err){
+      errEl.textContent = (err && err.message) || 'Clave incorrecta.';
+    }finally{
+      if(document.body.contains(btn)){
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+  },
+
+  showUnlockedPanel(){
+    document.getElementById('panel-locked').style.display = 'none';
+    document.getElementById('panel-unlocked').style.display = 'block';
+    App.switchPanelTab('tickets');
+    App.renderPanelTable();
+  },
+
+  switchPanelTab(tab){
+    App.panelTab = tab;
+    document.querySelectorAll('#panel-subtabs .chip-filter').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+    document.getElementById('panel-tickets-view').style.display = tab === 'tickets' ? 'block' : 'none';
+    document.getElementById('panel-dashboard-view').style.display = tab === 'dashboard' ? 'block' : 'none';
+    if(tab === 'dashboard'){
+      if(!App.dashboardAllTickets){ App.loadDashboardData(); }
+      else { App.renderDashboardPeriodFilters(); App.renderDashboard(); }
+    }
+  },
+
+  // Selector "Asesor:" dentro del panel ya desbloqueado. Es un FILTRO sobre la
+  // tabla de Tickets (no la identidad de quien inició sesión, que se fija al
+  // entrar al panel con nombre + clave).
+  handleAdvisorFilterSelect(){
+    const select = document.getElementById('advisor-select');
+    const other = document.getElementById('advisor-name-other');
+    if(select.value === '__otro__'){
+      other.style.display = 'inline-block';
+      other.value = '';
+      other.focus();
+    } else {
+      other.style.display = 'none';
+      other.value = '';
+      App.asesorFilterName = select.value;
+      App.applyAdvisorFilterEverywhere();
+    }
+  },
+  handleAdvisorFilterOtherChange(){
+    App.asesorFilterName = document.getElementById('advisor-name-other').value.trim();
+    App.applyAdvisorFilterEverywhere();
+  },
+  // Botón de borrador: quita el filtro de asesor y regresa el selector a "Todos los asesores".
+  clearAdvisorFilter(){
+    App.asesorFilterName = "";
+    const select = document.getElementById('advisor-select');
+    const other = document.getElementById('advisor-name-other');
+    select.value = "";
+    other.value = "";
+    other.style.display = "none";
+    App.applyAdvisorFilterEverywhere();
+  },
+  // Refresca la tabla de Tickets y, si el Dashboard ya se cargó alguna vez,
+  // también lo vuelve a dibujar filtrado por el mismo asesor (o general, si
+  // el filtro está en "Todos los asesores").
+  applyAdvisorFilterEverywhere(){
+    App.renderPanelTable();
+    if(App.dashboardAllTickets) App.renderDashboard();
+  },
+
+
+  getAdvisorName(){ return App.currentAdvisorName; },
+
+  handleCargoSelect(){
+    const sel = document.getElementById('f-cargo-select').value;
+    document.getElementById('f-cargo-other-wrap').style.display = (sel === '__otro__') ? 'block' : 'none';
+  },
+  getCargoName(){
+    const sel = document.getElementById('f-cargo-select').value;
+    if(sel === '__otro__') return document.getElementById('f-cargo-other').value.trim();
+    return sel;
+  },
+
+  handleFranquiciaSelect(){
+    const sel = document.getElementById('f-franquicia-select').value;
+    document.getElementById('f-franquicia-other-wrap').style.display = (sel === '__otro__') ? 'block' : 'none';
+  },
+  getFranquiciaName(){
+    const sel = document.getElementById('f-franquicia-select').value;
+    if(sel === '__otro__') return document.getElementById('f-franquicia-other').value.trim();
+    return sel;
+  },
+
+  handleFiles(ev){
+    const files = Array.from(ev.target.files || []);
+    const MAX_SIZE = 15*1024*1024; // 15MB por archivo
+    files.forEach(file=>{
+      if(file.size > MAX_SIZE){
+        App.showToast(`"${file.name}" pesa demasiado (máx. 15MB). No se adjuntó.`);
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = ()=>{
+        const base64 = reader.result.split(',')[1];
+        App.pendingFiles.push({name:file.name, type:file.type, base64, previewUrl: file.type.startsWith('image/') ? reader.result : null});
+        App.renderFileList();
+      };
+      reader.readAsDataURL(file);
+    });
+    ev.target.value = "";
+  },
+
+  renderFileList(){
+    document.getElementById('file-list').innerHTML = App.pendingFiles.map((f,i)=>`
+      <div class="file-chip">
+        ${f.previewUrl ? `<img src="${f.previewUrl}">` : App.icons.paperclip}
+        <span>${f.name}</span>
+        <button onclick="App.removeFile(${i})">&times;</button>
+      </div>`).join('');
+  },
+  removeFile(i){ App.pendingFiles.splice(i,1); App.renderFileList(); },
+
+  async submitTicket(){
+    const nombre = document.getElementById('f-nombre').value.trim();
+    const cargo = App.getCargoName();
+    const franquicia = App.getFranquiciaName();
+    const correo = document.getElementById('f-correo').value.trim();
+    const telefono = document.getElementById('f-telefono').value.trim();
+    const tipo = document.getElementById('f-tipo').value;
+    const descripcion = document.getElementById('f-descripcion').value.trim();
+    const errEl = document.getElementById('form-error');
+    const btn = document.getElementById('btn-submit');
+
+    if(!nombre || !franquicia || !correo || !descripcion){
+      errEl.textContent = "Favor de completar nombre, franquicia, correo y descripción del problema.";
+      return;
+    }
+    errEl.textContent = "";
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Enviando…';
+
+    try{
+      const data = {nombre, cargo, franquicia, correo, telefono, tipo, descripcion, adjuntos: App.pendingFiles.map(f=>({name:f.name,type:f.type,base64:f.base64}))};
+      const res = await gs('crearTicket', data);
+      document.getElementById('confirm-folio').textContent = res.folio;
+      document.getElementById('confirm-correo').textContent = res.correo;
+      document.getElementById('form-wrap').style.display = 'none';
+      document.getElementById('confirm-wrap').style.display = 'block';
+      App.pendingFiles = [];
+    }catch(err){
+      errEl.textContent = "Ocurrió un error al enviar el ticket. Intente de nuevo.";
+      console.error(err);
+    }finally{
+      btn.disabled = false;
+      btn.textContent = 'Enviar ticket';
+    }
+  },
+
+  resetForm(){
+    ['f-nombre','f-correo','f-telefono','f-descripcion'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('f-tipo').selectedIndex = 0;
+    document.getElementById('f-cargo-select').selectedIndex = 0;
+    document.getElementById('f-cargo-other').value = '';
+    document.getElementById('f-cargo-other-wrap').style.display = 'none';
+    document.getElementById('f-franquicia-select').selectedIndex = 0;
+    document.getElementById('f-franquicia-other').value = '';
+    document.getElementById('f-franquicia-other-wrap').style.display = 'none';
+    App.pendingFiles = [];
+    App.renderFileList();
+    document.getElementById('form-wrap').style.display = 'block';
+    document.getElementById('confirm-wrap').style.display = 'none';
+  },
+
+  async buscarTicket(){
+    const q = document.getElementById('c-query').value.trim();
+    const wrap = document.getElementById('consulta-resultados');
+    if(!q){ wrap.innerHTML=''; return; }
+    wrap.innerHTML = '<div class="empty-state"><span class="spinner"></span>Buscando…</div>';
+    try{
+      const results = await gs('buscarTickets', q);
+      App.consultaResults = results;
+      App.consultaFilter = "Todos";
+      App.consultaDateFrom = "";
+      App.consultaDateTo = "";
+      App.renderConsultaResultados();
+    }catch(err){ wrap.innerHTML = '<div class="empty-state">Ocurrió un error al buscar. Intente de nuevo.</div>'; }
+  },
+
+  renderConsultaResultados(){
+    const wrap = document.getElementById('consulta-resultados');
+    const all = App.consultaResults;
+
+    if(!all.length){
+      wrap.innerHTML = `<div class="empty-state"><div class="drop-big"></div>No se encontró ningún ticket con ese folio o correo.</div>`;
+      return;
+    }
+
+    // Un solo resultado (folio exacto, o correo con un único ticket): detalle completo, sin filtros.
+    if(all.length === 1){
+      wrap.innerHTML = App.renderTicketDetailHTML(all[0]);
+      return;
+    }
+
+    // Varios tickets asociados al correo: filtros de estatus y fecha, igual que en el Panel de asesores.
+    let filtered = App.consultaFilter === "Todos" ? all.slice() : all.filter(t=>t.estado===App.consultaFilter);
+    if(App.consultaDateFrom){
+      const from = new Date(App.consultaDateFrom + 'T00:00:00');
+      filtered = filtered.filter(t=> new Date(t.fecha) >= from);
+    }
+    if(App.consultaDateTo){
+      const to = new Date(App.consultaDateTo + 'T23:59:59');
+      filtered = filtered.filter(t=> new Date(t.fecha) <= to);
+    }
+    filtered.sort((a,b)=> new Date(b.fecha) - new Date(a.fecha));
+
+    const chipsHTML = ["Todos", ...STATUSES].map(s=>
+      `<button class="chip-filter ${s===App.consultaFilter?'active':''}" onclick="App.setConsultaFilter('${s}')">${s}</button>`
+    ).join('');
+
+    const tableHTML = filtered.length ? `
+        <table class="tk-table">
+          <thead><tr><th>Folio</th><th>Franquicia</th><th>Tipo</th><th>Estatus</th><th>Recibido</th></tr></thead>
+          <tbody>${filtered.map(t=>`
+            <tr class="row-clickable" onclick="App.openTicketPublic('${t.folio}')">
+              <td><strong>${t.folio}</strong></td><td>${t.franquicia}</td><td>${t.tipo}</td>
+              <td><span class="badge" style="background:${STATUS_COLORS[t.estado]}">${t.estado}</span></td>
+              <td>${new Date(t.fecha).toLocaleDateString('es-MX')}</td>
+            </tr>`).join('')}</tbody>
+        </table>` : `<div class="empty-state"><div class="drop-big"></div>No hay tickets que coincidan con estos filtros.</div>`;
+
+    // NOTA: las filas usan openTicketPublic (definida más abajo), no openTicket,
+    // para no mostrar aquí los controles de "Atender / Actualizar / Eliminar"
+    // que son exclusivos del Panel de asesores.
+
+    wrap.innerHTML = `
+      <p class="consulta-count">Se encontraron ${all.length} tickets asociados a esta búsqueda. Seleccione uno para ver el detalle completo.</p>
+      <div class="advisor-bar" style="margin-bottom:18px;">
+        <div class="filters">${chipsHTML}</div>
+        <div class="date-filter-row">
+          <label style="margin:0;">Desde</label>
+          <input type="date" id="c-date-from" value="${App.consultaDateFrom}" onchange="App.setConsultaDateFrom(this.value)">
+          <label style="margin:0;">Hasta</label>
+          <input type="date" id="c-date-to" value="${App.consultaDateTo}" onchange="App.setConsultaDateTo(this.value)">
+          <button type="button" class="btn-icon-circle" title="Limpiar filtro de fechas" onclick="App.clearConsultaDateFilter()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></svg>
+          </button>
+        </div>
+      </div>
+      ${tableHTML}`;
+  },
+
+  setConsultaFilter(s){ App.consultaFilter = s; App.renderConsultaResultados(); },
+  setConsultaDateFrom(v){ App.consultaDateFrom = v; App.renderConsultaResultados(); },
+  setConsultaDateTo(v){ App.consultaDateTo = v; App.renderConsultaResultados(); },
+  clearConsultaDateFilter(){
+    App.consultaDateFrom = "";
+    App.consultaDateTo = "";
+    App.renderConsultaResultados();
+  },
+
+  // ===================== DASHBOARD (Panel de asesores) =====================
+  async loadDashboardData(){
+    const wrap = document.getElementById('dashboard-wrap');
+    wrap.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando información del dashboard…</div>';
+    try{
+      const tickets = await gs('obtenerTickets', 'Todos', App.currentAdvisorName, App.advisorCode);
+      App.dashboardAllTickets = tickets;
+      App.renderDashboardPeriodFilters();
+      App.renderDashboard();
+    }catch(err){
+      wrap.innerHTML = '<div class="empty-state">Ocurrió un error al cargar el dashboard. Intenta de nuevo.</div>';
+    }
+  },
+
+  renderDashboardPeriodFilters(){
+    const wrap = document.getElementById('dash-period-filters');
+    const now = new Date();
+    const trimestreNum = Math.floor(now.getMonth()/3) + 1;     // 1..4
+    const semestreNum = now.getMonth() < 6 ? 1 : 2;             // 1..2
+    const opts = [
+      ["hoy","Hoy"],
+      ["mes","Este mes"],
+      ["trimestre", App.getOrdinalLabel(trimestreNum) + " Trimestre"],
+      ["semestre", App.getOrdinalLabel(semestreNum) + " Semestre"],
+      ["anio","Año " + now.getFullYear()],
+      ["personalizado","Personalizado"]
+    ];
+    wrap.innerHTML = `<select id="dash-period-select" onchange="App.setDashboardPeriod(this.value)" style="min-width:170px;">` +
+      opts.map(([k,label]) => `<option value="${k}" ${k===App.dashboardPeriod?'selected':''}>${label}</option>`).join('') +
+      `</select>`;
+    document.getElementById('dash-custom-dates').style.display = App.dashboardPeriod === 'personalizado' ? 'flex' : 'none';
+  },
+  // Ordinal corto en español para 1..4 (1er, 2do, 3er, 4to), usado en las
+  // etiquetas dinámicas de trimestre/semestre.
+  getOrdinalLabel(n){
+    const map = {1:'1er', 2:'2do', 3:'3er', 4:'4to'};
+    return map[n] || (n + 'to');
+  },
+  setDashboardPeriod(p){
+    App.dashboardPeriod = p;
+    App.renderDashboardPeriodFilters();
+    App.renderDashboard();
+  },
+  setDashboardCustomFrom(v){ App.dashboardCustomFrom = v; App.renderDashboard(); },
+  setDashboardCustomTo(v){ App.dashboardCustomTo = v; App.renderDashboard(); },
+  clearDashboardDateFilter(){
+    App.dashboardPeriod = "mes";
+    App.dashboardCustomFrom = "";
+    App.dashboardCustomTo = "";
+    const fromEl = document.getElementById('dash-date-from');
+    const toEl = document.getElementById('dash-date-to');
+    if(fromEl) fromEl.value = "";
+    if(toEl) toEl.value = "";
+    App.renderDashboardPeriodFilters();
+    App.renderDashboard();
+  },
+
+  // Calcula el rango de fechas [from, to] según el preset seleccionado.
+  // mes/trimestre/semestre/año son del inicio del período natural hasta hoy
+  // ("cómo vamos" en tiempo real). Personalizado usa las fechas elegidas.
+  getDashboardRange(period){
+    const now = new Date();
+    const y = now.getFullYear();
+    let from, to = now;
+    if(period === 'hoy'){
+      from = new Date(y, now.getMonth(), now.getDate());
+    } else if(period === 'trimestre'){
+      const qStartMonth = Math.floor(now.getMonth()/3)*3;
+      from = new Date(y, qStartMonth, 1);
+    } else if(period === 'semestre'){
+      const hStartMonth = now.getMonth() < 6 ? 0 : 6;
+      from = new Date(y, hStartMonth, 1);
+    } else if(period === 'anio'){
+      from = new Date(y, 0, 1);
+    } else if(period === 'personalizado'){
+      from = App.dashboardCustomFrom ? new Date(App.dashboardCustomFrom + 'T00:00:00') : new Date(y, 0, 1);
+      to = App.dashboardCustomTo ? new Date(App.dashboardCustomTo + 'T23:59:59') : now;
+    } else { // "mes" (por defecto)
+      from = new Date(y, now.getMonth(), 1);
+    }
+    return { from, to };
+  },
+
+  formatDashboardPeriodLabel(from, to){
+    const mesLargo = {month:'long'};
+    const mismoDia = from.getDate() === to.getDate() && from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+    if(mismoDia){
+      const hoy = new Date();
+      const esHoy = from.getDate() === hoy.getDate() && from.getMonth() === hoy.getMonth() && from.getFullYear() === hoy.getFullYear();
+      const prefijo = esHoy ? 'hoy, ' : 'el ';
+      return `${prefijo}${from.getDate()} de ${from.toLocaleDateString('es-MX', mesLargo)} de ${from.getFullYear()}`;
+    }
+    const mismoMes = from.getMonth() === to.getMonth() && from.getFullYear() === to.getFullYear();
+    const mismoAnio = from.getFullYear() === to.getFullYear();
+    if(mismoMes){
+      return `del ${from.getDate()} al ${to.getDate()} de ${to.toLocaleDateString('es-MX', mesLargo)} de ${to.getFullYear()}`;
+    }
+    if(mismoAnio){
+      return `del ${from.getDate()} de ${from.toLocaleDateString('es-MX', mesLargo)} al ${to.getDate()} de ${to.toLocaleDateString('es-MX', mesLargo)} de ${to.getFullYear()}`;
+    }
+    const opts = {day:'numeric', month:'long', year:'numeric'};
+    return `del ${from.toLocaleDateString('es-MX', opts)} al ${to.toLocaleDateString('es-MX', opts)}`;
+  },
+
+  computeDashboardStats(tickets){
+    const total = tickets.length;
+    const resueltosArr = tickets.filter(t => t.estado === 'Resuelto' || t.estado === 'Cerrado');
+    const resueltos = resueltosArr.length;
+    const pendientes = total - resueltos;
+    const efectividad = total ? Math.round((resueltos/total)*1000)/10 : 0;
+
+    const porEstado = {}; STATUSES.forEach(s => porEstado[s] = 0);
+    tickets.forEach(t => { if(porEstado[t.estado] !== undefined) porEstado[t.estado]++; });
+
+    const porTipo = {};
+    tickets.forEach(t => { const k = t.tipo || 'Otro'; porTipo[k] = (porTipo[k]||0) + 1; });
+
+    const porFranquicia = {};
+    tickets.forEach(t => { const k = t.franquicia || '—'; porFranquicia[k] = (porFranquicia[k]||0) + 1; });
+
+    const porAsesor = {};
+    tickets.forEach(t => {
+      const k = t.asesor && String(t.asesor).trim() ? t.asesor : null;
+      if(k) porAsesor[k] = (porAsesor[k]||0) + 1;
+    });
+
+    return { total, resueltos, pendientes, efectividad, porEstado, porTipo, porFranquicia, porAsesor };
+  },
+
+  renderBarList(dataObj, opts){
+    opts = opts || {};
+    const entries = Object.entries(dataObj).sort((a,b) => b[1]-a[1]);
+    const top = opts.limit ? entries.slice(0, opts.limit) : entries;
+    if(!top.length) return '<div style="font-size:12.5px;color:var(--ink-soft);padding:6px 0;">Sin datos en este período.</div>';
+    const max = Math.max(1, ...top.map(e => e[1]));
+    return top.map(([label, count]) => {
+      const pct = Math.round((count/max)*100);
+      return `<div class="dash-bar-row">
+        <div class="dash-bar-label" title="${label}">${label}</div>
+        <div class="dash-bar-track"><div class="dash-bar-fill" style="width:${pct}%;background:${opts.color||'var(--cyan)'};"></div></div>
+        <div class="dash-bar-count">${count}</div>
+      </div>`;
+    }).join('');
+  },
+
+  renderDonutSVG(dataArr){
+    const total = dataArr.reduce((s,d) => s + d.count, 0);
+    const size = 128, stroke = 20, r = (size-stroke)/2, c = 2*Math.PI*r;
+    let offset = 0;
+    const segs = dataArr.filter(d => d.count > 0).map(d => {
+      const frac = total ? d.count/total : 0;
+      const dash = frac*c;
+      const seg = `<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${d.color}" stroke-width="${stroke}" stroke-dasharray="${dash} ${c-dash}" stroke-dashoffset="${-offset}" transform="rotate(-90 ${size/2} ${size/2})"/>`;
+      offset += dash;
+      return seg;
+    }).join('');
+    return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" style="flex:none;">
+      <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="var(--line)" stroke-width="${stroke}"/>
+      ${segs}
+      <text x="${size/2}" y="${size/2-3}" text-anchor="middle" font-size="19" font-weight="800" fill="var(--charcoal-dark)" font-family="var(--font-display)">${total}</text>
+      <text x="${size/2}" y="${size/2+14}" text-anchor="middle" font-size="9" fill="var(--ink-soft)">tickets</text>
+    </svg>`;
+  },
+
+  buildDashboardSummary(stats, periodLabel){
+    if(stats.total === 0){
+      return `No se registraron tickets ${periodLabel}.`;
+    }
+    return `${periodLabel.charAt(0).toUpperCase()+periodLabel.slice(1)} se han registrado <strong>${stats.total}</strong> tickets, de los cuales <strong>${stats.resueltos}</strong> ya fueron resueltos y <strong>${stats.pendientes}</strong> siguen pendientes — así vamos con un <strong>${stats.efectividad}%</strong> de efectividad en lo que va del período.`;
+  },
+
+  renderDashboard(){
+    const wrap = document.getElementById('dashboard-wrap');
+    if(!App.dashboardAllTickets) return;
+
+    const { from, to } = App.getDashboardRange(App.dashboardPeriod);
+    let filtered = App.dashboardAllTickets.filter(t => {
+      const f = new Date(t.fecha);
+      return f >= from && f <= to;
+    });
+    // Si hay un asesor seleccionado en el filtro de arriba ("Asesor:"), el
+    // dashboard se acota a sus propios tickets — mismo diseño, datos personales.
+    if(App.asesorFilterName){
+      filtered = filtered.filter(t => (t.asesor||'') === App.asesorFilterName);
+    }
+
+    const stats = App.computeDashboardStats(filtered);
+    const periodLabel = App.formatDashboardPeriodLabel(from, to);
+    App.lastDashboardStats = stats;
+    App.lastDashboardPeriodLabel = periodLabel;
+    const quienLabel = App.asesorFilterName
+      ? `<p class="dash-period-label" style="margin-top:-10px;">Mostrando el dashboard de <strong>${App.asesorFilterName}</strong>.</p>`
+      : '';
+
+    const kpisHTML = `
+      <div class="dash-kpis">
+        <div class="dash-kpi total"><div class="dash-kpi-num">${stats.total}</div><div class="dash-kpi-label">Tickets registrados</div><div class="dash-kpi-sub">En el período seleccionado</div></div>
+        <div class="dash-kpi resueltos"><div class="dash-kpi-num">${stats.resueltos}</div><div class="dash-kpi-label">Resueltos</div><div class="dash-kpi-sub">Resuelto + Cerrado</div></div>
+        <div class="dash-kpi pendientes"><div class="dash-kpi-num">${stats.pendientes}</div><div class="dash-kpi-label">Pendientes</div><div class="dash-kpi-sub">Recibido, Atendido o En proceso</div></div>
+        <div class="dash-kpi efectividad"><div class="dash-kpi-num">${stats.efectividad}%</div><div class="dash-kpi-label">% de efectividad</div><div class="dash-kpi-sub">Tickets resueltos del total</div></div>
+      </div>`;
+
+    const estadoData = STATUSES.map(s => ({ label:s, count: stats.porEstado[s]||0, color: STATUS_COLORS[s] }));
+    const donutHTML = App.renderDonutSVG(estadoData);
+    const estadoLegendHTML = estadoData.map(d => {
+      const pct = stats.total ? Math.round((d.count/stats.total)*100) : 0;
+      return `<div class="dash-legend-row"><span class="dash-legend-dot" style="background:${d.color}"></span><span class="dash-legend-label">${d.label}</span><span class="dash-legend-count">${d.count} (${pct}%)</span></div>`;
+    }).join('');
+
+    const tipoHTML = App.renderBarList(stats.porTipo, { color:'var(--cyan)' });
+    const franquiciaHTML = App.renderBarList(stats.porFranquicia, { color:'var(--charcoal-dark)', limit:5 });
+    const asesorHTML = App.renderBarList(stats.porAsesor, { color:'var(--st-resuelto)', limit:5 });
+
+    wrap.innerHTML = `
+      <p class="dash-period-label">Período mostrado: ${periodLabel}</p>
+      ${quienLabel}
+      ${kpisHTML}
+      <div class="dash-grid">
+        <div class="dash-panel">
+          <h3>Distribución por estatus</h3>
+          <div class="dash-donut-wrap">
+            ${donutHTML}
+            <div style="flex:1;min-width:150px;">${estadoLegendHTML}</div>
+          </div>
+        </div>
+        <div class="dash-panel">
+          <h3>Distribución por tipo de problema</h3>
+          ${tipoHTML}
+        </div>
+        <div class="dash-panel">
+          <h3>Franquicias con más tickets</h3>
+          ${franquiciaHTML}
+        </div>
+        <div class="dash-panel">
+          <h3>Tickets atendidos por asesor</h3>
+          ${asesorHTML}
+        </div>
+      </div>
+      <div class="dash-summary">${App.buildDashboardSummary(stats, periodLabel)}</div>`;
+  },
+
+  // ===================== EXPORTAR A POWERPOINT (pestaña Dashboard) =====================
+  // Genera UNA sola diapositiva que replica el diseño exacto del dashboard
+  // web: tarjetas con borde/acento de color, dona con el número total al
+  // centro + leyenda con puntos de color, y barras de progreso dibujadas
+  // (no gráficas nativas de PowerPoint) — igual que .dash-bar-row en HTML.
+  exportDashboardToPptx(){
+    if(typeof PptxGenJS === 'undefined'){
+      App.showToast('No se pudo cargar la librería de PowerPoint. Revisa tu conexión e intenta de nuevo.');
+      return;
+    }
+    const stats = App.lastDashboardStats;
+    if(!stats){
+      App.showToast('Abre el Dashboard primero para poder exportarlo.');
+      return;
+    }
+    const periodLabel = App.lastDashboardPeriodLabel;
+    const asesorFiltro = App.asesorFilterName;
+
+    // Mismos colores que las variables CSS del dashboard.
+    const C = {
+      navy:'2B3643', charcoal:'54565A', cyan:'2DBDC9', cyanLight:'8FE0E5', mist:'F4F8F9',
+      line:'E2E5E6', ink:'2C2E30', inkSoft:'75787B',
+      recibido:'8A93AB', atendido:'2DBDC9', proceso:'E0A02E', resuelto:'3FA66B', cerrado:'54565A'
+    };
+    const ESTADO_COLOR = { 'Recibido':C.recibido, 'Atendido':C.atendido, 'En proceso':C.proceso, 'Resuelto':C.resuelto, 'Cerrado':C.cerrado };
+
+    const pptx = new PptxGenJS();
+    pptx.defineLayout({ name:'PURIFIKA_WIDE', width:13.33, height:7.5 });
+    pptx.layout = 'PURIFIKA_WIDE';
+    const slide = pptx.addSlide();
+    slide.background = { color:'FFFFFF' };
+
+    // ---------- Encabezado (navy, como el resto del sistema) ----------
+    slide.addShape(pptx.ShapeType.rect, { x:0, y:0, w:13.33, h:0.8, fill:{color:C.navy}, line:{type:'none'} });
+    slide.addText('Dashboard de Tickets — Purifika', { x:0.4, y:0.08, w:10, h:0.38, fontSize:19, bold:true, color:'FFFFFF', fontFace:'Calibri' });
+    let subtitle = 'Período mostrado: ' + periodLabel;
+    if(asesorFiltro) subtitle += '   ·   Mostrando el dashboard de ' + asesorFiltro;
+    slide.addText(subtitle, { x:0.4, y:0.48, w:12.4, h:0.26, fontSize:11, color:C.cyanLight, fontFace:'Calibri' });
+
+    // ---------- Tarjetas KPI (igual que .dash-kpi: fondo blanco, borde, acento izquierdo) ----------
+    const kpis = [
+      { label:'TICKETS REGISTRADOS', sub:'En el período seleccionado', value:String(stats.total), color:C.navy },
+      { label:'RESUELTOS', sub:'Resuelto + Cerrado', value:String(stats.resueltos), color:C.resuelto },
+      { label:'PENDIENTES', sub:'Recibido, Atendido o En proceso', value:String(stats.pendientes), color:C.proceso },
+      { label:'% DE EFECTIVIDAD', sub:'Tickets resueltos del total', value:stats.efectividad + '%', color:C.cyan }
+    ];
+    const kpiGap = 0.16, kpiStartX = 0.4, kpiY = 0.98, kpiH = 0.95;
+    const kpiW = (12.53 - kpiGap*3) / 4;
+    kpis.forEach((k,i)=>{
+      const x = kpiStartX + i*(kpiW+kpiGap);
+      slide.addShape(pptx.ShapeType.rect, { x, y:kpiY, w:kpiW, h:kpiH, fill:{color:'FFFFFF'}, line:{color:C.line, width:1} });
+      slide.addShape(pptx.ShapeType.rect, { x, y:kpiY, w:0.06, h:kpiH, fill:{color:k.color}, line:{type:'none'} });
+      slide.addText(k.value, { x:x+0.18, y:kpiY+0.08, w:kpiW-0.3, h:0.42, fontSize:23, bold:true, color:C.navy, fontFace:'Calibri' });
+      slide.addText(k.label, { x:x+0.18, y:kpiY+0.5, w:kpiW-0.3, h:0.22, fontSize:8.5, bold:true, color:C.inkSoft, fontFace:'Calibri', charSpacing:0.3 });
+      slide.addText(k.sub, { x:x+0.18, y:kpiY+0.7, w:kpiW-0.3, h:0.22, fontSize:7.5, color:C.inkSoft, fontFace:'Calibri' });
+    });
+
+    // ---------- Panel genérico (igual que .dash-panel: tarjeta blanca con borde) ----------
+    function agregarPanel(x, y, w, h, titulo){
+      slide.addShape(pptx.ShapeType.rect, { x, y, w, h, fill:{color:'FFFFFF'}, line:{color:C.line, width:1} });
+      slide.addText(titulo.toUpperCase(), { x:x+0.22, y:y+0.16, w:w-0.4, h:0.26, fontSize:10.5, bold:true, color:C.navy, fontFace:'Calibri', charSpacing:0.3 });
+      return { contentX:x+0.22, contentY:y+0.52, contentW:w-0.44, contentH:h-0.7 };
+    }
+
+    // Barras de progreso, igual que .dash-bar-row (etiqueta 44% + barra + número).
+    function agregarBarras(entries, x, y, w, h, color, limite){
+      if(!entries.length){
+        slide.addText('Sin datos en este período.', { x, y, w, h:0.3, fontSize:10, italic:true, color:'9AA0A3', fontFace:'Calibri' });
+        return;
+      }
+      const top = entries.slice(0, limite || 5);
+      const max = Math.max(1, ...top.map(e=>e[1]));
+      const rowH = Math.min(0.34, h / top.length);
+      const labelW = w * 0.42;
+      const countW = 0.36;
+      const trackX = x + labelW + 0.08;
+      const trackW = w - labelW - 0.08 - countW - 0.06;
+      top.forEach(([label,count], i)=>{
+        const rowY = y + i*rowH;
+        slide.addText(label, { x, y:rowY, w:labelW, h:rowH, fontSize:9.5, color:C.ink, fontFace:'Calibri', valign:'middle', shrinkText:true });
+        const trackY = rowY + rowH/2 - 0.05;
+        slide.addShape(pptx.ShapeType.roundRect, { x:trackX, y:trackY, w:trackW, h:0.1, rectRadius:0.05, fill:{color:C.mist}, line:{type:'none'} });
+        const fillW = Math.max(0.06, trackW * (count/max));
+        slide.addShape(pptx.ShapeType.roundRect, { x:trackX, y:trackY, w:fillW, h:0.1, rectRadius:0.05, fill:{color}, line:{type:'none'} });
+        slide.addText(String(count), { x:trackX+trackW+0.06, y:rowY, w:countW, h:rowH, fontSize:9.5, bold:true, color:C.navy, fontFace:'Calibri', valign:'middle', align:'right' });
+      });
+    }
+
+    // ---------- Rejilla 2x2 de paneles (igual que .dash-grid) ----------
+    const gridGap = 0.18, gridStartX = 0.4, gridY1 = 2.08, panelH = 2.02;
+    const panelW = (12.53 - gridGap) / 2;
+    const gridY2 = gridY1 + panelH + gridGap;
+    const colX = [gridStartX, gridStartX + panelW + gridGap];
+
+    // Panel 1: Distribución por estatus (dona con número al centro + leyenda, igual que .dash-donut-wrap)
+    let p = agregarPanel(colX[0], gridY1, panelW, panelH, 'Distribución por estatus');
+    const donutSize = 1.55;
+    const donutX = p.contentX, donutY = p.contentY + (p.contentH - donutSize)/2;
+    const estadoValues = STATUSES.map(s => stats.porEstado[s]||0);
+    const estadoColores = STATUSES.map(s => ESTADO_COLOR[s]);
+    if(stats.total > 0){
+      slide.addChart(pptx.ChartType.doughnut, [{ name:'Estatus', labels:STATUSES, values:estadoValues }], {
+        x:donutX, y:donutY, w:donutSize, h:donutSize, chartColors:estadoColores,
+        showLegend:false, showValue:false, holeSize:62
+      });
+    } else {
+      slide.addShape(pptx.ShapeType.ellipse, { x:donutX, y:donutY, w:donutSize, h:donutSize, fill:{color:C.line}, line:{type:'none'} });
+      slide.addShape(pptx.ShapeType.ellipse, { x:donutX+donutSize*0.31, y:donutY+donutSize*0.31, w:donutSize*0.38, h:donutSize*0.38, fill:{color:'FFFFFF'}, line:{type:'none'} });
+    }
+    // Número total al centro de la dona (como en la versión web)
+    slide.addText(String(stats.total), { x:donutX, y:donutY+donutSize*0.30, w:donutSize, h:0.32, fontSize:16, bold:true, color:C.navy, fontFace:'Calibri', align:'center' });
+    slide.addText('tickets', { x:donutX, y:donutY+donutSize*0.58, w:donutSize, h:0.2, fontSize:7.5, color:C.inkSoft, fontFace:'Calibri', align:'center' });
+    // Leyenda a la derecha de la dona
+    const legendX = donutX + donutSize + 0.28, legendW = (p.contentX+p.contentW) - legendX;
+    const legendRowH = p.contentH / STATUSES.length;
+    STATUSES.forEach((s,i)=>{
+      const count = stats.porEstado[s]||0;
+      const pct = stats.total ? Math.round((count/stats.total)*100) : 0;
+      const rowY = p.contentY + i*legendRowH;
+      slide.addShape(pptx.ShapeType.ellipse, { x:legendX, y:rowY+legendRowH/2-0.045, w:0.09, h:0.09, fill:{color:ESTADO_COLOR[s]}, line:{type:'none'} });
+      slide.addText(s, { x:legendX+0.16, y:rowY, w:legendW*0.55, h:legendRowH, fontSize:9, color:C.ink, fontFace:'Calibri', valign:'middle' });
+      slide.addText(`${count} (${pct}%)`, { x:legendX+0.16+legendW*0.55, y:rowY, w:legendW*0.45-0.16, h:legendRowH, fontSize:9, bold:true, color:C.navy, fontFace:'Calibri', valign:'middle', align:'right' });
+    });
+
+    // Panel 2: Distribución por tipo (barras de progreso)
+    p = agregarPanel(colX[1], gridY1, panelW, panelH, 'Distribución por tipo de problema');
+    const tipoEntries = Object.entries(stats.porTipo).sort((a,b)=>b[1]-a[1]);
+    agregarBarras(tipoEntries, p.contentX, p.contentY, p.contentW, p.contentH, C.cyan, 5);
+
+    // Panel 3: Franquicias con más tickets (barras de progreso)
+    p = agregarPanel(colX[0], gridY2, panelW, panelH, 'Franquicias con más tickets');
+    const franquiciaEntries = Object.entries(stats.porFranquicia).sort((a,b)=>b[1]-a[1]);
+    agregarBarras(franquiciaEntries, p.contentX, p.contentY, p.contentW, p.contentH, C.navy, 5);
+
+    // Panel 4: Tickets atendidos por asesor (barras de progreso)
+    p = agregarPanel(colX[1], gridY2, panelW, panelH, 'Tickets atendidos por asesor');
+    const asesorEntries = Object.entries(stats.porAsesor).sort((a,b)=>b[1]-a[1]);
+    agregarBarras(asesorEntries, p.contentX, p.contentY, p.contentW, p.contentH, C.resuelto, 5);
+
+    // ---------- Resumen (igual que .dash-summary: fondo mist) ----------
+    const periodCap = periodLabel.charAt(0).toUpperCase() + periodLabel.slice(1);
+    const resumenTexto = stats.total === 0
+      ? `No se registraron tickets ${periodLabel}.`
+      : `${periodCap} se han registrado ${stats.total} tickets, de los cuales ${stats.resueltos} ya fueron resueltos y ${stats.pendientes} siguen pendientes — así vamos con un ${stats.efectividad}% de efectividad en lo que va del período.`;
+    const summaryY = gridY2 + panelH + 0.16;
+    slide.addShape(pptx.ShapeType.roundRect, { x:0.4, y:summaryY, w:12.53, h:0.5, rectRadius:0.06, fill:{color:C.mist}, line:{type:'none'} });
+    slide.addText(resumenTexto, { x:0.6, y:summaryY+0.02, w:12.13, h:0.46, fontSize:10, color:C.navy, valign:'middle', fontFace:'Calibri' });
+
+    const fechaArchivo = new Date().toISOString().slice(0,10);
+    pptx.writeFile({ fileName:`Purifika_Dashboard_${fechaArchivo}.pptx` });
+  },
+
+  renderStepperHTML(estado){
+    const idx = STATUSES.indexOf(estado);
+    return `<div class="stepper">` + STATUSES.map((s,i)=>{
+      const cls = i < idx ? 'done' : (i === idx ? 'current' : '');
+      return `<div class="step ${cls}"><div class="bar"></div><div class="drop"><span>${i<idx?'&#10003;':''}</span></div><div class="lbl">${s}</div></div>`;
+    }).join('') + `</div>`;
+  },
+
+  renderTicketDetailHTML(t){
+    const adjuntosHTML = (t.adjuntos||[]).length
+      ? t.adjuntos.map(url=>`<div class="file-chip">${App.icons.paperclip} <a href="${url}" target="_blank">Ver adjunto</a></div>`).join('')
+      : '<span style="color:var(--ink-soft);font-size:13px;">Sin archivos adjuntos</span>';
+    return `
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <div><div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;">Folio</div>
+          <div style="font-size:20px;font-weight:800;color:var(--charcoal-dark);">${t.folio}</div></div>
+          <span class="badge" style="background:${STATUS_COLORS[t.estado]}">${t.estado}</span>
+        </div>
+        ${App.renderStepperHTML(t.estado)}
+        <div class="ticket-detail">
+          <div class="kv">
+            <div><span class="k">Nombre</span><span class="v">${t.nombre}</span></div>
+            <div><span class="k">Cargo</span><span class="v">${t.cargo||'—'}</span></div>
+            <div><span class="k">Franquicia</span><span class="v">${t.franquicia}</span></div>
+            <div><span class="k">Tipo de problema</span><span class="v">${t.tipo}</span></div>
+            <div><span class="k">Correo</span><span class="v">${t.correo}</span></div>
+            <div><span class="k">Asesor asignado</span><span class="v">${t.asesor||'Sin asignar'}</span></div>
+          </div>
+          <div class="desc-box">${t.descripcion}</div>
+          <div class="file-list">${adjuntosHTML}</div>
+          <div style="margin-top:20px;">
+            <div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;margin-bottom:6px;">Historial</div>
+            <ul class="history">${t.historial.slice().reverse().map(h=>`<li><div class="dot"></div><div><div>${h.evento}${h.detalle?': '+h.detalle:''}</div><div class="h-meta">${new Date(h.fecha).toLocaleString('es-MX')} · ${h.autor}</div></div></li>`).join('')}</ul>
+          </div>
+        </div>
+      </div>`;
+  },
+
+  renderFilters(){
+    const wrap = document.getElementById('tickets-status-filters');
+    const opts = ["Todos", ...STATUSES];
+    wrap.innerHTML = `<select id="tickets-status-select" onchange="App.setFilter(this.value)">` +
+      opts.map(s => `<option value="${s}" ${s===App.activeFilter?'selected':''}>${s}</option>`).join('') +
+      `</select>`;
+  },
+  setFilter(s){ App.activeFilter = s; App.renderFilters(); App.renderPanelTable(); },
+
+  // ===================== FILTRO DE FECHAS (pestaña Tickets) =====================
+  // Mismo patrón que el del Dashboard, pero con "Todos" como opción por
+  // defecto (sin acotar por fecha), ya que aquí normalmente se quiere ver
+  // todo el historial salvo que se pida lo contrario.
+  renderTicketsPeriodFilters(){
+    const wrap = document.getElementById('tickets-period-filters');
+    const now = new Date();
+    const trimestreNum = Math.floor(now.getMonth()/3) + 1;
+    const semestreNum = now.getMonth() < 6 ? 1 : 2;
+    const opts = [
+      ["todos","Todas las fechas"],
+      ["hoy","Hoy"],
+      ["mes","Este mes"],
+      ["trimestre", App.getOrdinalLabel(trimestreNum) + " Trimestre"],
+      ["semestre", App.getOrdinalLabel(semestreNum) + " Semestre"],
+      ["anio","Año " + now.getFullYear()],
+      ["personalizado","Personalizado"]
+    ];
+    wrap.innerHTML = `<select id="tickets-period-select" onchange="App.setTicketsPeriod(this.value)" style="min-width:150px;">` +
+      opts.map(([k,label]) => `<option value="${k}" ${k===App.ticketsPeriod?'selected':''}>${label}</option>`).join('') +
+      `</select>`;
+    document.getElementById('tickets-custom-dates').style.display = App.ticketsPeriod === 'personalizado' ? 'flex' : 'none';
+  },
+  setTicketsPeriod(p){
+    App.ticketsPeriod = p;
+    App.renderTicketsPeriodFilters();
+    App.renderPanelTable();
+  },
+  setTicketsCustomFrom(v){ App.ticketsCustomFrom = v; App.renderPanelTable(); },
+  setTicketsCustomTo(v){ App.ticketsCustomTo = v; App.renderPanelTable(); },
+  clearTicketsDateFilter(){
+    App.ticketsPeriod = "todos";
+    App.ticketsCustomFrom = "";
+    App.ticketsCustomTo = "";
+    const fromEl = document.getElementById('tickets-date-from');
+    const toEl = document.getElementById('tickets-date-to');
+    if(fromEl) fromEl.value = "";
+    if(toEl) toEl.value = "";
+    App.renderTicketsPeriodFilters();
+    App.renderPanelTable();
+  },
+  // Igual que getDashboardRange, pero con "todos" -> sin acotar (regresa null).
+  getTicketsDateRange(period){
+    if(period === 'todos') return null;
+    const now = new Date();
+    const y = now.getFullYear();
+    let from, to = now;
+    if(period === 'hoy'){
+      from = new Date(y, now.getMonth(), now.getDate());
+    } else if(period === 'trimestre'){
+      const qStartMonth = Math.floor(now.getMonth()/3)*3;
+      from = new Date(y, qStartMonth, 1);
+    } else if(period === 'semestre'){
+      const hStartMonth = now.getMonth() < 6 ? 0 : 6;
+      from = new Date(y, hStartMonth, 1);
+    } else if(period === 'anio'){
+      from = new Date(y, 0, 1);
+    } else if(period === 'personalizado'){
+      from = App.ticketsCustomFrom ? new Date(App.ticketsCustomFrom + 'T00:00:00') : new Date(y, 0, 1);
+      to = App.ticketsCustomTo ? new Date(App.ticketsCustomTo + 'T23:59:59') : now;
+    } else { // "mes"
+      from = new Date(y, now.getMonth(), 1);
+    }
+    return { from, to };
+  },
+
+  async renderPanelTable(){
+    const wrap = document.getElementById('panel-table-wrap');
+    wrap.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando tickets…</div>';
+    try{
+      const tickets = await gs('obtenerTickets', App.activeFilter, App.currentAdvisorName, App.advisorCode);
+      let filtered = App.asesorFilterName
+        ? tickets.filter(t => (t.asesor||'') === App.asesorFilterName)
+        : tickets;
+      const rango = App.getTicketsDateRange(App.ticketsPeriod);
+      if(rango){
+        filtered = filtered.filter(t => { const f = new Date(t.fecha); return f >= rango.from && f <= rango.to; });
+      }
+      App.lastRenderedTickets = filtered;
+      if(!filtered.length){
+        const quien = App.asesorFilterName ? ` de ${App.asesorFilterName}` : '';
+        wrap.innerHTML = `<div class="empty-state"><div class="drop-big"></div>No hay tickets${quien} en este estatus o rango de fechas.</div>`;
+        return;
+      }
+      wrap.innerHTML = `
+        <table class="tk-table">
+          <thead><tr><th>Folio</th><th>Franquicia</th><th>Tipo</th><th>Solicitante</th><th>Asesor</th><th>Estatus</th><th>Recibido</th><th></th></tr></thead>
+          <tbody>${filtered.map(t=>`
+            <tr class="row-clickable" onclick="App.openTicket('${t.folio}')">
+              <td><strong>${t.folio}</strong></td><td>${t.franquicia}</td><td>${t.tipo}</td><td>${t.nombre}</td>
+              <td>${t.asesor||'<span style="color:var(--ink-soft);">Sin asignar</span>'}</td>
+              <td><span class="badge" style="background:${STATUS_COLORS[t.estado]}">${t.estado}</span></td>
+              <td>${new Date(t.fecha).toLocaleDateString('es-MX')}</td>
+              <td><button class="btn-trash" title="Eliminar ticket" onclick="event.stopPropagation(); App.deleteTicket('${t.folio}')">${App.icons.trash}</button></td>
+            </tr>`).join('')}</tbody>
+        </table>`;
+    }catch(err){ wrap.innerHTML = '<div class="empty-state">Ocurrió un error al cargar los tickets.</div>'; }
+  },
+
+  // ===================== EXPORTAR A EXCEL (pestaña Tickets) =====================
+  exportTicketsToExcel(){
+    if(typeof XLSX === 'undefined'){
+      App.showToast('No se pudo cargar la librería de Excel. Revisa tu conexión e intenta de nuevo.');
+      return;
+    }
+    const tickets = App.lastRenderedTickets || [];
+    if(!tickets.length){
+      App.showToast('No hay tickets para exportar con los filtros actuales.');
+      return;
+    }
+    const filas = tickets.map(t => ({
+      'Folio': t.folio,
+      'Fecha': new Date(t.fecha).toLocaleString('es-MX'),
+      'Nombre': t.nombre,
+      'Cargo': t.cargo || '',
+      'Franquicia': t.franquicia,
+      'Correo': t.correo,
+      'Teléfono': t.telefono || '',
+      'Tipo': t.tipo,
+      'Descripción': t.descripcion,
+      'Estatus': t.estado,
+      'Asesor': t.asesor || 'Sin asignar'
+    }));
+    const ws = XLSX.utils.json_to_sheet(filas);
+    ws['!cols'] = [
+      {wch:14},{wch:18},{wch:22},{wch:26},{wch:12},{wch:26},{wch:13},{wch:14},{wch:45},{wch:12},{wch:18}
+    ];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tickets');
+    const fechaArchivo = new Date().toISOString().slice(0,10);
+    XLSX.writeFile(wb, `Purifika_Tickets_${fechaArchivo}.xlsx`);
+  },
+
+  async openTicket(folio){
+    const modal = document.getElementById('modal-content');
+    modal.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando…</div>';
+    document.getElementById('modal-backdrop').classList.add('show');
+    let t;
+    try{
+      t = await gs('obtenerTicketPorFolio', folio);
+    }catch(err){
+      modal.innerHTML = `<button class="modal-close" onclick="App.closeModal()">&times;</button><div class="empty-state">Ocurrió un error al cargar el ticket. Cierra esta ventana e intenta de nuevo.</div>`;
+      return;
+    }
+    if(!t){
+      modal.innerHTML = `<button class="modal-close" onclick="App.closeModal()">&times;</button><div class="empty-state">No se encontró este ticket. Es posible que ya haya sido eliminado — cierra esta ventana y actualiza la lista.</div>`;
+      App.renderPanelTable();
+      return;
+    }
+    const yaAsignadoAOtro = t.asesor && t.asesor !== App.currentAdvisorName;
+    modal.innerHTML = `
+      <button class="modal-close" onclick="App.closeModal()">&times;</button>
+      ${App.renderTicketDetailHTML(t)}
+      <div class="update-box">
+        <div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;">Actualizar ticket</div>
+        ${yaAsignadoAOtro ? `
+          <p style="font-size:13px;color:var(--ink-soft);margin:10px 0 0;">Este ticket está siendo atendido por <strong>${t.asesor}</strong>. Solo esa persona puede cambiar su estatus.</p>
+        ` : `
+          <div class="row">
+            ${t.asesor ? '' : `<button id="btn-attend" class="btn btn-primary btn-sm" onclick="App.attendTicket('${folio}')">Atender este ticket</button>`}
+            <select id="modal-status">${STATUSES.map(s=>`<option value="${s}" ${s===t.estado?'selected':''}>${s}</option>`).join('')}</select>
+          </div>
+          <textarea id="modal-nota" placeholder="Nota de seguimiento para el historial (visible para quien levantó el ticket)"></textarea>
+        `}
+        <div class="row">
+          ${yaAsignadoAOtro ? '' : `<button id="btn-update" class="btn btn-primary btn-sm" onclick="App.updateTicket('${folio}')">Guardar y notificar</button>`}
+          <button class="btn btn-ghost btn-sm" style="color:#B5473F;border-color:#F0C7C2;margin-left:auto;display:flex;align-items:center;gap:6px;" onclick="App.deleteTicket('${folio}')">${App.icons.trash} Eliminar ticket</button>
+        </div>
+      </div>`;
+  },
+  closeModal(){ document.getElementById('modal-backdrop').classList.remove('show'); },
+
+  // Igual que openTicket, pero solo lectura: sin los controles de Atender /
+  // Actualizar / Eliminar, que son exclusivos del Panel de asesores. Se usa
+  // desde "Consultar mi ticket" al hacer clic en una fila de la tabla.
+  async openTicketPublic(folio){
+    const modal = document.getElementById('modal-content');
+    modal.innerHTML = '<div class="empty-state"><span class="spinner"></span>Cargando…</div>';
+    document.getElementById('modal-backdrop').classList.add('show');
+    let t;
+    try{
+      t = await gs('obtenerTicketPorFolio', folio);
+    }catch(err){
+      modal.innerHTML = `<button class="modal-close" onclick="App.closeModal()">&times;</button><div class="empty-state">Ocurrió un error al cargar el ticket. Cierra esta ventana e intenta de nuevo.</div>`;
+      return;
+    }
+    if(!t){
+      modal.innerHTML = `<button class="modal-close" onclick="App.closeModal()">&times;</button><div class="empty-state">No se encontró este ticket.</div>`;
+      return;
+    }
+    modal.innerHTML = `
+      <button class="modal-close" onclick="App.closeModal()">&times;</button>
+      ${App.renderTicketDetailHTML(t)}`;
+  },
+
+  async attendTicket(folio){
+    const btn = document.getElementById('btn-attend');
+    if(btn && btn.disabled) return; // evita doble clic / doble ejecución
+    const advisor = App.getAdvisorName();
+    if(!advisor){ alert('No se identificó tu nombre de asesor. Cierra sesión y vuelve a entrar al panel.'); return; }
+
+    const originalHTML = btn ? btn.innerHTML : null;
+    if(btn){
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Guardando…';
+    }
+    try{
+      await gs('atenderTicket', folio, advisor, App.advisorCode);
+      App.showToast(`Ticket ${folio} asignado a ${advisor}.`);
+      App.openTicket(folio);
+      App.refreshActiveTables();
+    }catch(err){
+      console.error(err);
+      App.showToast((err && err.message) || 'No se pudo atender el ticket. Intenta de nuevo.');
+      // El ticket pudo haber sido tomado por otra persona justo antes; refresca
+      // el modal para mostrar el estado real (ya sin los controles de edición).
+      App.openTicket(folio);
+    }finally{
+      // Solo se reactiva si la operación falló y el botón sigue en el DOM
+      // (si tuvo éxito, openTicket ya volvió a dibujar el modal con un botón nuevo).
+      if(btn && document.body.contains(btn)){
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+  },
+
+  async updateTicket(folio){
+    const btn = document.getElementById('btn-update');
+    if(btn && btn.disabled) return; // evita doble clic / doble ejecución
+    const advisor = App.getAdvisorName();
+    if(!advisor){ alert('No se identificó tu nombre de asesor. Cierra sesión y vuelve a entrar al panel.'); return; }
+    const nuevoEstado = document.getElementById('modal-status').value;
+    const nota = document.getElementById('modal-nota').value.trim();
+
+    const originalHTML = btn ? btn.innerHTML : null;
+    if(btn){
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>Guardando…';
+    }
+    try{
+      await gs('actualizarTicket', folio, nuevoEstado, nota, advisor, App.advisorCode);
+      App.showToast(`Ticket ${folio} actualizado (${nuevoEstado}).`);
+      App.openTicket(folio);
+      App.refreshActiveTables();
+    }catch(err){
+      console.error(err);
+      App.showToast((err && err.message) || 'No se pudo actualizar el ticket. Intenta de nuevo.');
+      App.openTicket(folio);
+    }finally{
+      // Solo se reactiva si la operación falló y el botón sigue en el DOM
+      // (si tuvo éxito, openTicket ya volvió a dibujar el modal con un botón nuevo).
+      if(btn && document.body.contains(btn)){
+        btn.disabled = false;
+        btn.innerHTML = originalHTML;
+      }
+    }
+  },
+
+  // Refresca la tabla de Tickets (ya incluye el filtro de asesor) y además
+  // invalida el caché del dashboard para que se recalcule la próxima vez que se abra.
+  refreshActiveTables(){
+    App.renderPanelTable();
+    App.dashboardAllTickets = null;
+  },
+
+  confirmAction: null,
+
+  askConfirm(message, onConfirm){
+    document.getElementById('confirm-message').textContent = message;
+    App.confirmAction = onConfirm;
+    document.getElementById('confirm-backdrop').classList.add('show');
+  },
+  closeConfirm(){
+    document.getElementById('confirm-backdrop').classList.remove('show');
+    App.confirmAction = null;
+  },
+
+  async deleteTicket(folio){
+    App.askConfirm(
+      `¿Eliminar el ticket ${folio} de forma permanente? Esta acción no se puede deshacer. Los archivos adjuntos en Drive no se borran, solo el registro del ticket.`,
+      async ()=>{
+        try{
+          await gs('eliminarTicket', folio, App.currentAdvisorName, App.advisorCode);
+          App.showToast(`Ticket ${folio} eliminado.`);
+          App.closeModal();
+          App.refreshActiveTables();
+        }catch(err){
+          App.showToast((err && err.message) || 'No se pudo eliminar el ticket. Intenta de nuevo.');
+        }
+      }
+    );
+  },
+
+  showToast(msg){
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(App._toastTimer);
+    App._toastTimer = setTimeout(()=>t.classList.remove('show'), 4200);
+  }
+};
+
+document.getElementById('modal-backdrop').addEventListener('click', (e)=>{ if(e.target.id==='modal-backdrop') App.closeModal(); });
+document.getElementById('confirm-backdrop').addEventListener('click', (e)=>{ if(e.target.id==='confirm-backdrop') App.closeConfirm(); });
+document.getElementById('confirm-action-btn').addEventListener('click', ()=>{
+  const fn = App.confirmAction;
+  App.closeConfirm();
+  if(fn) fn();
+});
+App.init();
+</script>
+<script>
+/* ============================================================
+   Chrome adicional del portal (sidebar móvil, fecha, breadcrumb).
+   No modifica ni interfiere con el objeto App ni con sus llamadas al backend (gs()).
+   Se ejecuta después de App.init() y solo agrega comportamiento visual.
+   ============================================================ */
+(function(){
+  var VIEW_LABELS = { nuevo:'Levantar ticket', consulta:'Consultar mi ticket', panel:'Panel de asesores' };
+  var DAYS = ['DOMINGO','LUNES','MARTES','MIÉRCOLES','JUEVES','VIERNES','SÁBADO'];
+  var MONTHS = ['ENERO','FEBRERO','MARZO','ABRIL','MAYO','JUNIO','JULIO','AGOSTO','SEPTIEMBRE','OCTUBRE','NOVIEMBRE','DICIEMBRE'];
+
+  function formatFecha(){
+    var d = new Date();
+    return DAYS[d.getDay()] + ' ' + d.getDate() + ' DE ' + MONTHS[d.getMonth()] + ' DEL ' + d.getFullYear();
+  }
+
+  function pintarFecha(){
+    var texto = formatFecha();
+    var b = document.getElementById('today-date');
+    if(b) b.textContent = texto;
+  }
+
+  function sincronizarBreadcrumb(){
+    var activo = document.querySelector('nav.tabs button.active');
+    var view = activo ? activo.dataset.view : null;
+    var sep = document.getElementById('breadcrumb-sep');
+    var el = document.getElementById('breadcrumb-current');
+    var enHome = (view === 'nuevo');
+    if(sep) sep.style.display = enHome ? 'none' : '';
+    if(el){
+      el.style.display = enHome ? 'none' : '';
+      el.textContent = VIEW_LABELS[view] || '';
+    }
+  }
+
+  // "Home" del breadcrumb navega a "Levantar ticket" simulando un clic en el
+  // botón real del menú lateral, así se disparan también los demás listeners
+  // (App.switchView, el de este mismo archivo, colapso de sidebar en móvil).
+  function irAHome(){
+    var btn = document.querySelector('nav.tabs button[data-view="nuevo"]');
+    if(btn) btn.click();
+  }
+
+  // El botón circular retrae/despliega la barra lateral completa, igual que en
+  // el portal: en escritorio empieza visible, en pantallas angostas empieza oculta.
+  function toggleSidebar(){
+    var shell = document.getElementById('app-shell');
+    if(shell) shell.classList.toggle('sidebar-collapsed');
+  }
+
+  function estadoInicialSidebar(){
+    var shell = document.getElementById('app-shell');
+    if(!shell) return;
+    if(window.innerWidth <= 720) shell.classList.add('sidebar-collapsed');
+  }
+
+  pintarFecha();
+  sincronizarBreadcrumb();
+  estadoInicialSidebar();
+
+  // Listener adicional (no reemplaza el que agrega App.init()) sobre los mismos botones
+  // del menú, solo para mantener el breadcrumb y cerrar la barra en móvil al navegar.
+  document.querySelectorAll('nav.tabs button').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      sincronizarBreadcrumb();
+      if(window.innerWidth <= 720){
+        var shell = document.getElementById('app-shell');
+        if(shell) shell.classList.add('sidebar-collapsed');
+      }
+    });
+  });
+
+  var toggleBtn = document.getElementById('sidebar-toggle-btn');
+  if(toggleBtn) toggleBtn.addEventListener('click', toggleSidebar);
+
+  var homeLink = document.getElementById('breadcrumb-home');
+  if(homeLink) homeLink.addEventListener('click', irAHome);
+
+  // Refresca la fecha del encabezado si la pestaña queda abierta pasada la medianoche.
+  setInterval(pintarFecha, 60 * 1000);
+})();
+</script>
+
+<!-- ===================== ASISTENTE IA DEL SISTEMA DE TICKETS ===================== -->
+<!--
+  ==========================================================================
+  PURIFIKA · Asistente IA del Sistema de Tickets (widget)
+  ==========================================================================
+  Misma estructura y experiencia que purifika_chatbot_widget_IA.html (el del
+  portal): header con logo + botón de regresar, menú progresivo, barra
+  persistente para preguntas libres, respuestas con 👍/👎 y acciones rápidas.
+  Aquí NO se incluye un botón para "levantar ticket" porque este widget ya
+  vive dentro del propio Sistema de Tickets.
+
+  Backend: Codigo_Chatbot_Tickets.gs (proyecto de Apps Script independiente).
+
+  CÓMO EDITAR: todo lo que normalmente cambiarás está en el bloque CONFIG
+  más abajo, marcado con »»» EDITA AQUÍ.
+  ==========================================================================
+-->
+<div id="purifika-tickets-chatbot-root"></div>
+
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Open+Sans:wght@300;400;500;600;700&display=swap');
+
+  :root{
+    --pk-charcoal:#54565A;
+    --pk-navy:#2B3643;
+    --pk-cyan:#2DBDC9;
+    --pk-cyan-dark:#229CA6;
+    --pk-cyan-soft:#E8FAFB;
+    --pk-bg:#FFFFFF;
+    --pk-bg-soft:#F4F6F7;
+    --pk-border:#E2E5E6;
+    --pk-radius:16px;
+    --pk-font:'Open Sans','Calibri','Segoe UI',Arial,sans-serif;
+  }
+
+  #purifika-tickets-chatbot-root, #purifika-tickets-chatbot-root *{
+    box-sizing:border-box;
+    font-family:var(--pk-font);
+  }
+
+  @keyframes pkFadeIn{ from{ opacity:0; transform:translateY(6px);} to{ opacity:1; transform:translateY(0);} }
+  @keyframes pkPanelIn{ from{ opacity:0; transform:translateY(10px) scale(.97);} to{ opacity:1; transform:translateY(0) scale(1);} }
+  @keyframes pkPulse{ 0%{ box-shadow:0 0 0 0 rgba(37,202,210,.55);} 100%{ box-shadow:0 0 0 8px rgba(37,202,210,0);} }
+
+  .pk-launcher{
+    position:fixed; right:24px; bottom:24px; width:60px; height:60px; border-radius:50%;
+    background:linear-gradient(145deg, var(--pk-navy), var(--pk-charcoal));
+    border:none; cursor:pointer; box-shadow:0 8px 24px rgba(43,54,67,.35);
+    display:flex; align-items:center; justify-content:center; z-index:99998;
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .pk-launcher:hover{ transform:translateY(-3px); box-shadow:0 12px 28px rgba(43,54,67,.42); }
+  .pk-launcher svg{ width:25px; height:25px; }
+  .pk-launcher .pk-dot{
+    position:absolute; top:6px; right:6px; width:10px; height:10px; border-radius:50%;
+    background:var(--pk-cyan); border:2px solid #fff; animation:pkPulse 2s ease-out infinite;
+  }
+  .pk-launcher.pk-hidden{ display:none; }
+
+  .pk-panel{
+    position:fixed; right:24px; bottom:96px; width:380px; max-width:calc(100vw - 32px);
+    height:580px; max-height:calc(100vh - 140px); background:var(--pk-bg);
+    border-radius:var(--pk-radius); box-shadow:0 20px 50px rgba(29,35,43,.28), 0 2px 8px rgba(29,35,43,.08);
+    display:none; flex-direction:column; overflow:hidden; z-index:99999; border:1px solid var(--pk-border);
+  }
+  .pk-panel.pk-open{ display:flex; animation:pkPanelIn .22s cubic-bezier(.2,.8,.3,1); }
+
+  .pk-header{
+    background:linear-gradient(120deg, var(--pk-navy) 0%, var(--pk-charcoal) 100%);
+    color:#fff; padding:14px 16px; display:flex; align-items:center; gap:10px; position:relative; flex:none;
+  }
+  .pk-header::after{ content:''; position:absolute; left:0; right:0; bottom:0; height:3px; background:linear-gradient(90deg, var(--pk-cyan), var(--pk-cyan-dark)); }
+  .pk-header .pk-avatar{ width:34px;height:34px;border-radius:50%; background:var(--pk-navy); display:flex;align-items:center;justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.2), inset 0 0 0 2px rgba(255,255,255,.12); overflow:hidden; }
+  .pk-header .pk-avatar img{ width:78%; height:78%; object-fit:contain; }
+  .pk-header .pk-title{ font-size:15px; font-weight:600; line-height:1.25; letter-spacing:.1px; }
+  .pk-header .pk-subtitle{ font-size:11px; opacity:.82; margin-top:1px; }
+  .pk-header .pk-back{ background:rgba(255,255,255,.1); border:none; color:#fff; cursor:pointer; padding:6px; border-radius:8px; display:flex; margin-right:2px; }
+  .pk-header .pk-back:hover{ background:rgba(255,255,255,.18); }
+  .pk-header .pk-close{ margin-left:auto; background:rgba(255,255,255,.08); border:none; color:#fff; cursor:pointer; opacity:.85; padding:6px; border-radius:8px; display:flex; transition:background .12s ease, opacity .12s ease; }
+  .pk-header .pk-close:hover{ opacity:1; background:rgba(255,255,255,.16); }
+
+  .pk-body{ flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; background:var(--pk-bg-soft); }
+  .pk-body::-webkit-scrollbar{ width:6px; }
+  .pk-body::-webkit-scrollbar-thumb{ background:#c7cdd0; border-radius:3px; }
+
+  .pk-welcome{ font-size:13px; color:var(--pk-charcoal); line-height:1.5; background:#fff; border:1px solid var(--pk-border); border-radius:12px; padding:12px 14px; animation:pkFadeIn .25s ease; }
+
+  .pk-menu-btn{
+    display:flex; align-items:center; gap:10px; width:100%; text-align:left;
+    background:#fff; border:1.5px solid var(--pk-border); border-radius:12px;
+    padding:12px 14px; font-size:13.5px; font-weight:500; color:var(--pk-charcoal);
+    cursor:pointer; transition:border-color .13s ease, background .13s ease, transform .1s ease;
+    animation:pkFadeIn .22s ease; font-family:var(--pk-font);
+  }
+  .pk-menu-btn:hover{ border-color:var(--pk-cyan); background:var(--pk-cyan-soft); transform:translateY(-1px); }
+  .pk-menu-btn .pk-emoji{ font-size:18px; flex-shrink:0; }
+  .pk-menu-btn .pk-chev{ margin-left:auto; opacity:.4; flex-shrink:0; }
+  .pk-menu-btn small{ display:block; font-weight:400; color:#8a8f92; font-size:11.5px; margin-top:2px; }
+
+  .pk-answer{ background:#fff; border:1px solid var(--pk-border); border-radius:12px; padding:14px; font-size:13px; color:var(--pk-charcoal); line-height:1.55; animation:pkFadeIn .22s ease; }
+  .pk-answer h4{ margin:0 0 8px; font-size:13.5px; color:var(--pk-navy); }
+  .pk-answer ul{ margin:6px 0; padding-left:18px; }
+  .pk-answer p{ margin:0 0 8px; }
+  .pk-answer p:last-child{ margin-bottom:0; }
+
+  .pk-link-btn{ display:inline-flex; align-items:center; gap:6px; margin-top:10px; background:var(--pk-cyan); color:#fff; text-decoration:none; font-size:12.5px; font-weight:500; padding:9px 14px; border-radius:9px; }
+  .pk-link-btn:hover{ background:var(--pk-cyan-dark); }
+
+  .pk-feedback{ display:flex; align-items:center; gap:8px; margin-top:12px; padding-top:10px; border-top:1px dashed var(--pk-border); }
+  .pk-feedback span{ font-size:12px; color:#8a8f92; }
+  .pk-feedback button{ background:var(--pk-bg-soft); border:1.5px solid var(--pk-border); border-radius:8px; width:30px; height:30px; cursor:pointer; font-size:14px; }
+  .pk-feedback button:hover{ border-color:var(--pk-cyan); }
+  .pk-feedback .pk-fb-msg{ font-size:12px; color:var(--pk-cyan-dark); font-weight:600; }
+
+  .pk-related{ margin-top:10px; }
+  .pk-related-title{ font-size:11.5px; font-weight:700; color:#8a8f92; text-transform:uppercase; letter-spacing:.3px; margin-bottom:6px; }
+  .pk-chip{ display:inline-block; background:var(--pk-cyan-soft); color:var(--pk-cyan-dark); border:none; font-size:12px; font-weight:500; padding:7px 11px; border-radius:20px; margin:0 6px 6px 0; cursor:pointer; font-family:var(--pk-font); }
+  .pk-chip:hover{ background:var(--pk-cyan); color:#fff; }
+
+  .pk-action-row{ display:flex; gap:8px; margin-top:10px; }
+  .pk-action-row button{ flex:1; font-size:12px; font-weight:500; padding:9px 8px; border-radius:9px; cursor:pointer; font-family:var(--pk-font); border:1.5px solid var(--pk-border); background:#fff; color:var(--pk-charcoal); }
+  .pk-action-row button:hover{ border-color:var(--pk-cyan); color:var(--pk-cyan-dark); background:var(--pk-cyan-soft); }
+  .pk-action-row button.pk-primary{ background:var(--pk-navy); color:#fff; border-color:var(--pk-navy); }
+  .pk-action-row button.pk-primary:hover{ background:var(--pk-charcoal); }
+
+  .pk-search-box{ display:flex; gap:6px; margin-bottom:10px; }
+  .pk-search-box input{ flex:1; border:1.5px solid var(--pk-border); border-radius:9px; padding:9px 11px; font-size:13px; font-family:var(--pk-font); }
+  .pk-search-box input:focus{ outline:none; border-color:var(--pk-cyan); }
+  .pk-part-card{ background:#fff; border:1px solid var(--pk-border); border-radius:10px; padding:10px 12px; margin-bottom:8px; font-size:12.5px; }
+  .pk-part-card .pk-part-no{ font-weight:700; color:var(--pk-navy); }
+  .pk-part-card .pk-part-sub{ float:right; color:var(--pk-cyan-dark); font-weight:600; font-size:11.5px; }
+  .pk-empty-state{ text-align:center; color:#9aa0a3; font-size:12.5px; padding:20px 10px; }
+
+  .pk-advisor-card{ display:flex; align-items:center; justify-content:space-between; background:#fff; border:1px solid var(--pk-border); border-radius:10px; padding:10px 12px; margin-bottom:8px; }
+  .pk-advisor-card .pk-adv-name{ font-size:12.5px; font-weight:700; color:var(--pk-charcoal); }
+  .pk-advisor-card a{ background:#25D366; color:#fff; text-decoration:none; font-size:11.5px; font-weight:700; padding:7px 10px; border-radius:8px; display:flex; align-items:center; gap:5px; }
+
+  .pk-ai-msgs{ display:flex; flex-direction:column; gap:8px; margin-bottom:10px; }
+  .pk-ai-bubble{ max-width:85%; padding:10px 12px; border-radius:12px; font-size:13px; line-height:1.5; animation:pkFadeIn .2s ease; }
+  .pk-ai-bubble.pk-user{ align-self:flex-end; background:var(--pk-navy); color:#fff; border-bottom-right-radius:3px; }
+  .pk-ai-bubble.pk-bot{ align-self:flex-start; background:#fff; border:1px solid var(--pk-border); color:var(--pk-charcoal); border-bottom-left-radius:3px; }
+  .pk-ai-bubble.pk-bot b{ color:var(--pk-navy); }
+  .pk-ai-typing{ align-self:flex-start; background:#fff; border:1px solid var(--pk-border); border-radius:12px; padding:10px 14px; font-size:12px; color:#9aa0a3; }
+  .pk-ai-disclaimer{ font-size:10.5px; color:#9aa0a3; text-align:center; margin-top:6px; }
+
+  .pk-bar-caption{ font-size:11px; color:#8a8f92; text-align:center; padding:8px 12px 0; background:#fff; border-top:1px solid var(--pk-border); flex:none; }
+  .pk-persistent-bar{ display:flex; gap:8px; padding:8px 12px 10px; background:#fff; flex:none; }
+  .pk-persistent-bar input{ flex:1; border:1.5px solid var(--pk-border); border-radius:20px; padding:9px 14px; font-size:13px; font-family:var(--pk-font); }
+  .pk-persistent-bar input:focus{ outline:none; border-color:var(--pk-cyan); }
+  .pk-persistent-bar button{ background:var(--pk-cyan); border:none; color:#fff; border-radius:50%; width:36px; height:36px; flex-shrink:0; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .pk-persistent-bar button:hover{ background:var(--pk-cyan-dark); }
+
+  @media (max-width:480px){
+    .pk-panel{
+      right:8px; left:8px; width:auto;
+      top:calc(12px + env(safe-area-inset-top, 0px));
+      bottom:calc(80px + env(safe-area-inset-bottom, 0px));
+      height:auto; max-height:none; border-radius:16px;
+    }
+    .pk-launcher{ right:14px; bottom:calc(14px + env(safe-area-inset-bottom, 0px)); width:56px; height:56px; }
+    .pk-header{ padding:14px; }
+    .pk-header .pk-close, .pk-header .pk-back{ padding:9px; }
+    .pk-menu-btn{ padding:14px; font-size:14.5px; min-height:48px; }
+    .pk-action-row button{ padding:11px 8px; min-height:44px; }
+    .pk-search-box input, .pk-persistent-bar input{ font-size:16px; padding:11px 12px; }
+    .pk-chip{ min-height:36px; }
+  }
+</style>
+
+<script>
+(function(){
+
+  /* ======================================================================
+     »»» EDITA AQUÍ: CONFIGURACIÓN GENERAL
+     ====================================================================== */
+  const CONFIG = {
+    AI_ENDPOINT_URL: "https://script.google.com/a/macros/purifika.com/s/AKfycbzz4iF-Bjzs-ogg3i_Fg_7sIGTs20CZPg3P13--bDL_-PhQTH8ld7_lV4xKvs0H9iYg/exec",
+    LOGO_URL: "https://i.ibb.co/QF9XQCdw/purifika-favicon-64.png",
+
+    ASESORES: [
+      { name: "Eduardo Cerda Díaz", whatsapp: "https://wa.me/528125759808" },
+      { name: "Brandon Martínez", whatsapp: "https://wa.me/528131635641" },
+      { name: "Karen Astorga", whatsapp: "https://wa.me/526442545089" }
+    ],
+
+    HEADER_TITLE: "Asistente de Tickets",
+    HEADER_SUBTITLE: "Purifika · Sistema de Tickets"
+  };
+
+  /* ======================================================================
+     »»» EDITA AQUÍ: CÓDIGOS DE FRANQUICIA
+     ====================================================================== */
+  const FRANQUICIAS = [
+  {cod:"AGS", ciudad:"Aguascalientes"},
+  {cod:"AGS2", ciudad:"Aguascalientes 2"},
+  {cod:"BJX", ciudad:"León, Guanajuato"},
+  {cod:"CDJ", ciudad:"Ciudad Juárez, Chihuahua"},
+  {cod:"CDMX1", ciudad:"Ciudad de México 1"},
+  {cod:"CDMX2", ciudad:"Ciudad de México 2 (Huixquilucan)"},
+  {cod:"CDMX3", ciudad:"Ciudad de México 3 (Miguel Hidalgo)"},
+  {cod:"CDMX4", ciudad:"Ciudad de México 4 (Benito Juárez)"},
+  {cod:"CHIH", ciudad:"Chihuahua"},
+  {cod:"CHIH2", ciudad:"Chihuahua 2"},
+  {cod:"CJS", ciudad:"Ciudad Juárez, Chihuahua"},
+  {cod:"CUL", ciudad:"Culiacán, Sinaloa"},
+  {cod:"CUL2", ciudad:"Culiacán 2"},
+  {cod:"CUN", ciudad:"Cancún, Quintana Roo"},
+  {cod:"GDL", ciudad:"Guadalajara, Jalisco"},
+  {cod:"GUA", ciudad:"Guatemala (Fraijanes)"},
+  {cod:"GYM", ciudad:"Guaymas, Sonora"},
+  {cod:"HMO", ciudad:"Hermosillo, Sonora"},
+  {cod:"IPTO", ciudad:"Irapuato, Guanajuato"},
+  {cod:"LMM", ciudad:"Los Mochis, Sinaloa"},
+  {cod:"LPZ", ciudad:"La Paz, Baja California Sur"},
+  {cod:"MID", ciudad:"Mérida, Yucatán"},
+  {cod:"MLM", ciudad:"Morelia, Michoacán"},
+  {cod:"MTY", ciudad:"Monterrey (Santa Catarina, NL) — Oficinas centrales"},
+  {cod:"NOG", ciudad:"Nogales, Sonora"},
+  {cod:"OBR", ciudad:"Obregón (Cajeme), Sonora"},
+  {cod:"PCA", ciudad:"Pachuca, Hidalgo"},
+  {cod:"PDS", ciudad:"Piedras Negras, Coahuila"},
+  {cod:"PUE", ciudad:"Puebla"},
+  {cod:"PUE2", ciudad:"Puebla 2 (San Pedro Cholula)"},
+  {cod:"PURIFIKA", ciudad:"Oficinas centrales / Corporativo"},
+  {cod:"QRO1", ciudad:"Querétaro 1"},
+  {cod:"QRO2", ciudad:"Querétaro 2"},
+  {cod:"QRO3", ciudad:"Querétaro 3"},
+  {cod:"REX", ciudad:"Reynosa, Tamaulipas"},
+  {cod:"SJD", ciudad:"San José del Cabo / Los Cabos, BCS"},
+  {cod:"SLP", ciudad:"San Luis Potosí"},
+  {cod:"SLP2", ciudad:"San Luis Potosí 2"},
+  {cod:"SLW", ciudad:"Saltillo, Coahuila"},
+  {cod:"TAM", ciudad:"Tampico, Tamaulipas"},
+  {cod:"TGZ", ciudad:"Tuxtla Gutiérrez, Chiapas"},
+  {cod:"TIJ", ciudad:"Tijuana, Baja California"},
+  {cod:"TRC", ciudad:"Torreón, Coahuila"},
+  {cod:"TRC2", ciudad:"Torreón 2"},
+  {cod:"TRC3", ciudad:"Torreón 3"},
+  {cod:"VER", ciudad:"Veracruz (Boca del Río)"},
+  {cod:"VHS", ciudad:"Villahermosa, Tabasco"}
+];
+
+  /* ======================================================================
+     »»» EDITA AQUÍ: CATÁLOGO DE PUESTOS (RH-AFM-F-FR-02)
+     ====================================================================== */
+  const CARGOS = [
+  {puesto:"FRANQUICIATARIO", area:"Dirección", desc:"Lidera todas las operaciones y estrategias de la franquicia."},
+  {puesto:"GERENTE DE OPERACIONES", area:"Servicio", desc:"Dirige manufactura, instalación y mantenimiento de equipos."},
+  {puesto:"SUPERVISOR DE MANTENIMIENTO GENERAL", area:"Servicio", desc:"Supervisa mantenimiento y remanufactura de equipos."},
+  {puesto:"SUPERVISOR DE SERVICIO", area:"Servicio", desc:"Coordina técnicos e ingenieros de servicio."},
+  {puesto:"SUPERVISOR / ENCARGADO DE INSTALACIONES", area:"Servicio", desc:"Supervisa instalación de equipos."},
+  {puesto:"ATENCIÓN A CLIENTES", area:"Servicio", desc:"Coordina solicitudes y reclamaciones de clientes."},
+  {puesto:"TÉCNICO INSTALADOR SR.", area:"Servicio", desc:"Instala equipos; certificado para trabajos en altura."},
+  {puesto:"TÉCNICO INSTALADOR JR.", area:"Servicio", desc:"Instala y reubica equipos."},
+  {puesto:"AYUDANTE DE INSTALACIONES", area:"Servicio", desc:"Apoya en instalación de equipos."},
+  {puesto:"TÉCNICO EN MANTENIMIENTO GENERAL", area:"Servicio", desc:"Revisión, limpieza y ajustes preventivos."},
+  {puesto:"INGENIERO DE PROYECTOS", area:"Servicio", desc:"Analiza datos del portal y propone mejoras operativas."},
+  {puesto:"TÉCNICO EN REFRIGERACIÓN", area:"Servicio", desc:"Diagnostica y repara sistemas de refrigeración."},
+  {puesto:"BECARIO CONALEP DUAL", area:"Servicio", desc:"Apoya en mantenimiento de línea general."},
+  {puesto:"BECARIO ROTARY", area:"Servicio", desc:"Apoya en mantenimiento de línea general."},
+  {puesto:"ESPECIALISTA DE CONTROL DE CALIDAD", area:"Servicio", desc:"Asegura estándares de funcionamiento y seguridad."},
+  {puesto:"INGENIERO DE SERVICIO", area:"Servicio", desc:"Resuelve problemas de equipos, asesora a clientes."},
+  {puesto:"TÉCNICO SR.", area:"Servicio", desc:"Mantenimientos preventivos/correctivos, fallas complejas."},
+  {puesto:"TÉCNICO JR.", area:"Servicio", desc:"Mantenimientos preventivos y ajustes."},
+  {puesto:"GERENTE COMERCIAL", area:"Ventas", desc:"Gestiona estrategias de venta de equipos."},
+  {puesto:"ASESOR COMERCIAL", area:"Ventas", desc:"Vende equipos y da seguimiento a cotizaciones."},
+  {puesto:"ENCARGADO DE ALMACÉN", area:"Almacén", desc:"Supervisa recepción y distribución de productos."},
+  {puesto:"ALMACENISTA", area:"Almacén", desc:"Recibe mercancías y prepara pedidos."},
+  {puesto:"GERENTE DE RECURSOS HUMANOS", area:"Recursos Humanos", desc:"Trámites de RH, contratos, capacitaciones."},
+  {puesto:"AUXILIAR DE LIMPIEZA", area:"Recursos Humanos", desc:"Limpieza de oficinas y áreas comunes."},
+  {puesto:"GERENTE ADMINISTRATIVO", area:"Administración", desc:"Lidera operaciones financieras y administrativas."},
+  {puesto:"AUXILIAR CONTABLE", area:"Administración", desc:"Registra transacciones contables."},
+  {puesto:"SUPERVISOR DE FACTURACIÓN Y COBRANZA", area:"Administración", desc:"Supervisa facturación y cartera de clientes."},
+  {puesto:"EJECUTIVO DE FACTURACIÓN Y COBRANZA", area:"Administración", desc:"Genera facturas y da seguimiento a cobranza."},
+  {puesto:"MENSAJERO", area:"Administración", desc:"Entrega facturas/documentos y realiza cobros."},
+  {puesto:"COORDINADOR DE SISTEMA DE GESTIÓN DE CALIDAD", area:"Franquicias", desc:"Asegura cumplimiento de estándares de calidad."},
+  {puesto:"COORDINADOR ADMINISTRATIVO", area:"Administración", desc:"Caja chica, compras y cartera de clientes."},
+  {puesto:"GERENTE DE FRANQUICIAS", area:"Franquicias", desc:"Lidera a los asesores de franquicias."},
+  {puesto:"SUPERVISOR DE EMBARQUES", area:"Franquicias", desc:"Coordina envío de pedidos a franquicias."},
+  {puesto:"SUPERVISOR DE PRODUCCIÓN PARA FRANQUICIAS", area:"Franquicias", desc:"Supervisa ensamblaje de equipos nuevos."},
+  {puesto:"ASESOR DE FRANQUICIAS", area:"Franquicias", desc:"Atiende usuarios de franquicias — ellos atienden los tickets."},
+  {puesto:"TÉCNICO DE EMBARQUES", area:"Franquicias", desc:"Verifica pedidos completos antes de enviarse."},
+  {puesto:"TÉCNICO DE ENSAMBLE", area:"Franquicias", desc:"Ensambla y monta equipos según especificaciones."},
+  {puesto:"AUXILIAR DE RECURSOS HUMANOS", area:"Recursos Humanos", desc:"Apoya trámites de RH."}
+];
+
+  /* ======================================================================
+     »»» EDITA AQUÍ: MENÚ PRINCIPAL Y PREGUNTAS FRECUENTES
+     ====================================================================== */
+  const MENU = {
+    franquicias: { emoji:"🏢", title:"Franquicias", subtitle:"Busca tu código de sucursal", type:"search-franquicias" },
+    puestos:     { emoji:"👤", title:"Puestos y cargos", subtitle:"Catálogo oficial RH-AFM-F-FR-02", type:"search-cargos" },
+    sistema:     { emoji:"ℹ️", title:"Cómo funciona el sistema", subtitle:"Folio, seguimiento, requisitos", type:"faqlist" },
+    describir:   { emoji:"✍️", title:"Ayúdame a describir mi problema", subtitle:"Te hago preguntas para redactarlo bien", type:"ai-preset" }
+  };
+
+  const FAQS = [
+    { id:"folio", q:"¿Qué es el folio y cómo se genera?",
+      html:`<p>Al enviar tu ticket se genera automáticamente un <b>número de folio</b> único con este formato:</p>
+        <p style="text-align:center;font-size:15px;font-weight:700;color:var(--pk-navy);">PUR + día + mes + año + consecutivo</p>
+        <p>Ejemplo: el 3er ticket levantado el 14 de agosto de 2026 es <b>PUR-14-08-2026-03</b>. El consecutivo va de 01 a 99 y se reinicia cada día. Además recibirás un correo de confirmación con este folio.</p>` },
+    { id:"seguimiento", q:"¿Cómo sé si mi ticket fue atendido?",
+      html:`<p>No tienes que estar preguntando. Cada vez que un asesor actualiza tu ticket (lo toma, lo pasa a "En proceso", lo resuelve, etc.), el sistema te <b>manda un correo automático</b> avisándote el cambio.</p>
+        <p>Los estatus posibles son: Recibido → Atendido → En proceso → Resuelto → Cerrado.</p>` },
+    { id:"consultar", q:"¿Cómo consulto mis tickets anteriores?",
+      html:`<p>Ve a <b>"Consultar mi ticket"</b> y busca por tu número de folio, o por tu <b>correo electrónico</b> — si buscas por correo, te salen <b>todos</b> los tickets que has levantado con ese correo, con filtros por estatus y por fecha.</p>` },
+    { id:"telefono", q:"¿Es obligatorio poner mi teléfono?",
+      html:`<p><b>No, es opcional.</b> Solo el nombre, franquicia, correo y descripción del problema son obligatorios. Pero si dejas tu teléfono, puede ayudar a agilizar el contacto si el asesor necesita resolver algo con urgencia.</p>` },
+    { id:"unasesor", q:"¿Puede más de un asesor atender mi ticket?",
+      html:`<p>No. En cuanto un asesor de franquicias <b>atiende</b> tu ticket, queda asignado solo a esa persona — así se evita que dos asesores trabajen el mismo caso sin saberlo. Ese mismo asesor es quien lo actualiza hasta cerrarlo.</p>` },
+    { id:"adjuntos", q:"¿Debo subir fotos o video?",
+      html:`<p>Es opcional, pero muy recomendable si reportas una falla física, fuga, error en pantalla, etc. — ayuda mucho al asesor a diagnosticar el problema más rápido. Los archivos se guardan en Drive, ligados a tu ticket.</p>` }
+  ];
+
+  /* ======================================================================
+     »»» A PARTIR DE AQUÍ NO NECESITAS TOCAR NADA (motor del widget)
+     ====================================================================== */
+  const root = document.getElementById('purifika-tickets-chatbot-root');
+  let history = [];
+  let aiConversation = [];
+  let inAIView = false;
+
+  root.innerHTML = `
+    <button class="pk-launcher" id="pkLauncher" aria-label="Abrir asistente de tickets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      <span class="pk-dot"></span>
+    </button>
+    <div class="pk-panel" id="pkPanel">
+      <div class="pk-header">
+        <button class="pk-back" id="pkBack" style="display:none" aria-label="Regresar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="pk-avatar"><img src="${CONFIG.LOGO_URL}" alt="Purifika"></div>
+        <div>
+          <div class="pk-title" id="pkHeaderTitle">${CONFIG.HEADER_TITLE}</div>
+          <div class="pk-subtitle" id="pkHeaderSubtitle">${CONFIG.HEADER_SUBTITLE}</div>
+        </div>
+        <button class="pk-close" id="pkClose" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="pk-body" id="pkBody"></div>
+      <div class="pk-bar-caption">💬 ¿Tienes otra duda? Escríbela aquí abajo</div>
+      <div class="pk-persistent-bar" id="pkPersistentBar">
+        <input type="text" id="pkBarInput" placeholder="Escribe tu pregunta..." autocomplete="off">
+        <button id="pkBarSend" aria-label="Enviar">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+  `;
+
+  const $launcher = document.getElementById('pkLauncher');
+  const $panel = document.getElementById('pkPanel');
+  const $close = document.getElementById('pkClose');
+  const $back = document.getElementById('pkBack');
+  const $body = document.getElementById('pkBody');
+  const $hTitle = document.getElementById('pkHeaderTitle');
+  const $hSub = document.getElementById('pkHeaderSubtitle');
+
+  function esc(s){ return (s||"").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
+
+  function pushView(renderFn){ history.push(renderFn); $back.style.display = history.length>1 ? 'flex' : 'none'; }
+  function goBack(){ if(history.length>1){ history.pop(); const prev = history[history.length-1]; $back.style.display = history.length>1 ? 'flex':'none'; prev(true); } }
+  function setHeader(title, subtitle){ $hTitle.textContent = title; $hSub.textContent = subtitle; }
+
+  function menuBtn(emoji, title, subtitle, onclick){
+    return `<button class="pk-menu-btn" onclick="${onclick}">
+      <span class="pk-emoji">${emoji}</span>
+      <span>${title}${subtitle?`<small>${subtitle}</small>`:''}</span>
+      <span class="pk-chev">›</span>
+    </button>`;
+  }
+
+  function feedbackAndActions(){
+    return `
+      <div class="pk-feedback" id="pkFeedback">
+        <span>¿Te fue útil esta respuesta?</span>
+        <button onclick="pktFeedback(true)">👍</button>
+        <button onclick="pktFeedback(false)">👎</button>
+      </div>
+      <div class="pk-action-row">
+        <button onclick="renderAsesores()">Contactar asesor</button>
+        <button class="pk-primary" onclick="renderHome()">🏠 Menú</button>
+      </div>`;
+  }
+  window.pktFeedback = function(useful){
+    const el = document.getElementById('pkFeedback');
+    if(el) el.innerHTML = `<span class="pk-fb-msg">${useful ? '¡Gracias por tu retroalimentación! 🙌' : 'Gracias, te sugerimos contactar a un asesor para resolverlo mejor.'}</span>`;
+  };
+
+  /* ---------- NIVEL 1: Home ---------- */
+  function renderHome(skipPush){
+    if(!skipPush){ history = []; pushView(renderHome); }
+    inAIView = false;
+    setHeader(CONFIG.HEADER_TITLE, CONFIG.HEADER_SUBTITLE);
+    let html = `<div class="pk-welcome">Hola 👋 ¿En qué te ayudo hoy? Elige una opción:</div>`;
+    Object.keys(MENU).forEach(key => {
+      const m = MENU[key];
+      html += menuBtn(m.emoji, m.title, m.subtitle, `openMenuItem('${key}')`);
+    });
+    $body.innerHTML = html;
+  }
+  window.renderHome = renderHome;
+
+  /* ---------- Router del menú principal ---------- */
+  window.openMenuItem = function(key, skipPush){
+    const m = MENU[key];
+    if(!skipPush) pushView(() => openMenuItem(key, true));
+    if(m.type === "search-franquicias"){ renderSearch(true, 'franquicias'); return; }
+    if(m.type === "search-cargos"){ renderSearch(true, 'cargos'); return; }
+    if(m.type === "faqlist"){ renderFaqList(true); return; }
+    if(m.type === "asesores"){ renderAsesores(true); return; }
+    if(m.type === "ai"){ openAI(true); return; }
+    if(m.type === "ai-preset"){ openAIPreset(true); return; }
+  };
+
+  /* ---------- Lista de preguntas frecuentes ---------- */
+  function renderFaqList(skipPush){
+    if(!skipPush) pushView(() => renderFaqList(true));
+    inAIView = false;
+    setHeader("Cómo funciona el sistema", "Elige una pregunta");
+    let html = "";
+    FAQS.forEach(item => { html += menuBtn("❓", item.q, null, `openFAQ('${item.id}')`); });
+    $body.innerHTML = html;
+  }
+
+  window.openFAQ = function(faqId, skipPush){
+    const item = FAQS.find(f => f.id === faqId);
+    if(!item) return;
+    if(!skipPush) pushView(() => openFAQ(faqId, true));
+    setHeader("Cómo funciona el sistema", item.q);
+    $body.innerHTML = `<div class="pk-answer">${item.html}${feedbackAndActions()}</div>`;
+  };
+
+  /* ---------- Búsqueda de franquicias / puestos ---------- */
+  function renderSearch(skipPush, kind){
+    if(!skipPush) pushView(() => renderSearch(true, kind));
+    inAIView = false;
+    const isFranquicias = kind === 'franquicias';
+    setHeader(isFranquicias ? "Franquicias" : "Puestos y cargos", isFranquicias ? "Busca por código o ciudad" : "Catálogo RH-AFM-F-FR-02");
+    $body.innerHTML = `
+      <div class="pk-search-box">
+        <input type="text" id="pkSearchInput" placeholder="${isFranquicias ? 'Ej. MTY o Monterrey' : 'Ej. Asesor de Franquicias'}">
+      </div>
+      <div id="pkSearchResults"></div>
+    `;
+    const input = document.getElementById('pkSearchInput');
+    input.addEventListener('input', () => renderSearchResults(input.value, kind));
+    renderSearchResults("", kind);
+    input.focus();
+  }
+
+  function renderSearchResults(query, kind){
+    const q = (query||"").toLowerCase().trim();
+    const container = document.getElementById('pkSearchResults');
+    if(!container) return;
+    let html = "";
+    if(kind === 'franquicias'){
+      const results = q ? FRANQUICIAS.filter(f => f.cod.toLowerCase().includes(q) || f.ciudad.toLowerCase().includes(q)) : FRANQUICIAS;
+      if(!results.length){
+        html = `<div class="pk-empty-state">No encontramos ese código.<br>Confirma con un asesor de franquicias.</div>` + feedbackAndActions();
+      } else {
+        html = results.slice(0,30).map(f => `<div class="pk-part-card"><span class="pk-part-no">${esc(f.cod)}</span><span class="pk-part-sub">${esc(f.ciudad)}</span></div>`).join('');
+        if(results.length > 30) html += `<div class="pk-empty-state">Mostrando 30 de ${results.length}. Escribe más letras para acotar.</div>`;
+      }
+    } else {
+      const results = q ? CARGOS.filter(c => c.puesto.toLowerCase().includes(q) || c.area.toLowerCase().includes(q)) : CARGOS;
+      if(!results.length){
+        html = `<div class="pk-empty-state">No encontramos ese puesto.<br>Confirma con un asesor de franquicias.</div>` + feedbackAndActions();
+      } else {
+        html = results.slice(0,30).map(c => `<div class="pk-part-card"><span class="pk-part-no">${esc(c.puesto)}</span><span class="pk-part-sub">${esc(c.area)}</span><div style="margin-top:4px;color:#8a8f92;">${esc(c.desc)}</div></div>`).join('');
+        if(results.length > 30) html += `<div class="pk-empty-state">Mostrando 30 de ${results.length}. Escribe más letras para acotar.</div>`;
+      }
+    }
+    container.innerHTML = html;
+  }
+
+  /* ---------- Contactar asesor ---------- */
+  window.renderAsesores = function(skipPush){
+    if(!skipPush) pushView(() => renderAsesores(true));
+    inAIView = false;
+    setHeader("Contactar asesor", "Cualquiera te puede ayudar");
+    let html = `<div class="pk-welcome">Nuestros asesores de franquicia:</div>`;
+    CONFIG.ASESORES.forEach(a => {
+      html += `<div class="pk-advisor-card"><span class="pk-adv-name">${esc(a.name)}</span><a href="${a.whatsapp}" target="_blank" rel="noopener">WhatsApp</a></div>`;
+    });
+    $body.innerHTML = html;
+  };
+
+  /* ---------- Chat con IA ---------- */
+  window.openAI = function(skipPush){
+    if(!skipPush) pushView(() => openAI(true));
+    inAIView = true;
+    setHeader("Pregúntale a la IA", "Respuestas basadas en información de Purifika");
+    aiConversation = [];
+    renderAIView();
+  };
+
+  window.openAIPreset = function(skipPush){
+    if(!skipPush) pushView(() => openAIPreset(true));
+    inAIView = true;
+    setHeader("Describir mi problema", "Te ayudo a redactarlo");
+    aiConversation = [];
+    renderAIView();
+    sendMessage("Ayúdame a describir bien mi problema para el ticket. Hazme preguntas una por una sobre qué está pasando, cuándo empezó, qué equipo o sección está involucrada, y qué he intentado hacer.");
+  };
+
+  function formatBotText(text){
+    let t = esc(text || "");
+    t = t.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>');
+    t = t.replace(/\*(.+?)\*/g, '<i>$1</i>');
+    t = t.replace(/^- (.+)$/gm, '• $1');
+    t = t.replace(/\n/g, '<br>');
+    return t;
+  }
+
+  function renderAIView(){
+    let msgsHtml = aiConversation.map(m => `<div class="pk-ai-bubble ${m.role === 'user' ? 'pk-user':'pk-bot'}">${m.role === 'user' ? esc(m.text) : formatBotText(m.text)}</div>`).join("");
+    $body.innerHTML = `
+      <div class="pk-welcome">Escribe tu pregunta aquí abajo. Si no tengo información confirmada, te lo diré y te sugeriré contactar a un asesor.</div>
+      <div class="pk-ai-msgs" id="pkAiMsgs">${msgsHtml}</div>
+      <div class="pk-ai-disclaimer">Respuestas generadas por IA (Gemini); pueden contener errores.</div>
+      <div class="pk-action-row" style="margin-top:10px"><button onclick="renderAsesores()">Contactar asesor</button><button class="pk-primary" onclick="renderHome()">🏠 Menú</button></div>
+    `;
+    const msgsBox = document.getElementById('pkAiMsgs');
+    if(msgsBox) msgsBox.scrollTop = msgsBox.scrollHeight;
+  }
+
+  function sendMessage(text){
+    text = (text||"").trim();
+    if(!text) return;
+    aiConversation.push({ role:'user', text });
+    renderAIView();
+
+    const msgsBox = document.getElementById('pkAiMsgs');
+    if(msgsBox){
+      const typing = document.createElement('div');
+      typing.className = 'pk-ai-typing';
+      typing.id = 'pkTyping';
+      typing.textContent = 'Escribiendo...';
+      msgsBox.appendChild(typing);
+      msgsBox.scrollTop = msgsBox.scrollHeight;
+    }
+
+    fetch(CONFIG.AI_ENDPOINT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ history: aiConversation.slice(-16) })
+    })
+      .then(r => r.json())
+      .then(data => {
+        aiConversation.push({ role:'bot', text: data.reply || 'No pude generar una respuesta. Contacta a un asesor.' });
+        renderAIView();
+      })
+      .catch(() => {
+        aiConversation.push({ role:'bot', text: 'No pude conectar con el asistente en este momento. Intenta de nuevo o contacta a un asesor.' });
+        renderAIView();
+      });
+  }
+
+  $launcher.addEventListener('click', () => {
+    $panel.classList.add('pk-open');
+    $launcher.classList.add('pk-hidden');
+    renderHome();
+  });
+  $close.addEventListener('click', () => {
+    $panel.classList.remove('pk-open');
+    $launcher.classList.remove('pk-hidden');
+  });
+  $back.addEventListener('click', () => goBack());
+
+  /* Barra persistente: se puede escribir una pregunta desde cualquier pantalla.
+     Si no está ya en la vista de IA, entra a ella y manda la pregunta de una vez. */
+  const barInput = document.getElementById('pkBarInput');
+  const sendFromBar = () => {
+    const text = barInput.value.trim();
+    if(!text) return;
+    barInput.value = "";
+    if(!inAIView){ openAI(); }
+    sendMessage(text);
+  };
+  document.getElementById('pkBarSend').addEventListener('click', sendFromBar);
+  barInput.addEventListener('keydown', e => { if(e.key === 'Enter') sendFromBar(); });
+
+  /* En celular, cuando aparece el teclado el navegador reduce el "visual
+     viewport" pero no reacomoda los elementos con position:fixed. Se corrige
+     subiendo el panel el espacio exacto que ocupa el teclado. */
+  if(window.visualViewport){
+    const vv = window.visualViewport;
+    const adjustForKeyboard = () => {
+      if(!window.matchMedia('(max-width:480px)').matches) return;
+      const keyboardHeight = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      $panel.style.bottom = keyboardHeight > 60 ? (keyboardHeight + 8) + 'px' : '';
+    };
+    vv.addEventListener('resize', adjustForKeyboard);
+    vv.addEventListener('scroll', adjustForKeyboard);
+  }
+
+})();
+</script>
+
+
+</body>
+</html>
