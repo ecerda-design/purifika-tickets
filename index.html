@@ -475,7 +475,7 @@
       <h2 class="view-title">Consultar mi ticket</h2>
       <p class="view-sub">Ingrese su número de folio o su correo electrónico para ver el estado y el historial de atención.</p>
       <div class="search-row">
-        <input type="text" id="c-query" placeholder="Ej. PUR-14-08-2026-01 o correo@ejemplo.com">
+        <input type="text" id="c-query" placeholder="Ej. PUR1408202601 o correo@ejemplo.com">
         <button class="btn btn-primary" onclick="App.buscarTicket()">Buscar</button>
       </div>
       <div id="consulta-resultados"></div>
@@ -2050,6 +2050,7 @@ App.init();
   {cod:"SLP2", ciudad:"San Luis Potosí 2"},
   {cod:"SLW", ciudad:"Saltillo, Coahuila"},
   {cod:"TAM", ciudad:"Tampico, Tamaulipas"},
+    {cod:"TCN", ciudad:"Tehuacán, Puebla"},
   {cod:"TGZ", ciudad:"Tuxtla Gutiérrez, Chiapas"},
   {cod:"TIJ", ciudad:"Tijuana, Baja California"},
   {cod:"TRC", ciudad:"Torreón, Coahuila"},
@@ -2116,8 +2117,8 @@ App.init();
   const FAQS = [
     { id:"folio", q:"¿Qué es el folio y cómo se genera?",
       html:`<p>Al enviar tu ticket se genera automáticamente un <b>número de folio</b> único con este formato:</p>
-        <p style="text-align:center;font-size:15px;font-weight:700;color:var(--pk-navy);">PUR + día + mes + año + consecutivo</p>
-        <p>Ejemplo: el 3er ticket levantado el 14 de agosto de 2026 es <b>PUR-14-08-2026-03</b>. El consecutivo va de 01 a 99 y se reinicia cada día. Además recibirás un correo de confirmación con este folio.</p>` },
+        <p style="text-align:center;font-size:15px;font-weight:700;color:var(--pk-navy);">PUR + día + mes + año + consecutivo (sin guiones)</p>
+        <p>Ejemplo: el 3er ticket levantado el 14 de agosto de 2026 es <b>PUR1408202603</b>. El consecutivo va de 01 a 99 y se reinicia cada día. Además recibirás un correo de confirmación con este folio.</p>` },
     { id:"seguimiento", q:"¿Cómo sé si mi ticket fue atendido?",
       html:`<p>No tienes que estar preguntando. Cada vez que un asesor actualiza tu ticket (lo toma, lo pasa a "En proceso", lo resuelve, etc.), el sistema te <b>manda un correo automático</b> avisándote el cambio.</p>
         <p>Los estatus posibles son: Recibido → Atendido → En proceso → Resuelto → Cerrado.</p>` },
