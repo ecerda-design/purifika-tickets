@@ -27,6 +27,7 @@
     --font-body:'Open Sans',Calibri,'Segoe UI',Tahoma,Arial,sans-serif;
   }
   *{box-sizing:border-box;}
+    button{-webkit-appearance:none;-moz-appearance:none;appearance:none;}
   html,body{margin:0;padding:0;height:100%;overflow-x:hidden;}
   body{font-family:var(--font-body);background:var(--mist);color:var(--ink);-webkit-font-smoothing:antialiased;}
 
@@ -131,7 +132,7 @@
   .file-chip button{border:none;background:none;color:#B5473F;cursor:pointer;font-size:13px;font-weight:700;}
 
   /* ===================== BOTONES (estilo botón "Acciones" del portal) ===================== */
-  .btn{font-family:var(--font-body);font-weight:700;font-size:12px;border:none;border-radius:3px;
+  .btn{-webkit-appearance:none;-moz-appearance:none;appearance:none;font-family:var(--font-body);font-weight:700;font-size:12px;border:none;border-radius:3px;
         padding:7px 16px;cursor:pointer;
            transition:background-color .15s, border-color .15s, color .15s;
            -webkit-transform:translateZ(0);transform:translateZ(0);}
