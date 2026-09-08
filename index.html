@@ -132,7 +132,9 @@
 
   /* ===================== BOTONES (estilo botón "Acciones" del portal) ===================== */
   .btn{font-family:var(--font-body);font-weight:700;font-size:12px;border:none;border-radius:3px;
-    padding:7px 16px;cursor:pointer;transition:.15s;}
+        padding:7px 16px;cursor:pointer;
+           transition:background-color .15s, border-color .15s, color .15s;
+           -webkit-transform:translateZ(0);transform:translateZ(0);}
   .btn-primary{background:var(--cyan);color:#fff;} .btn-primary:hover{background:var(--cyan-dark);color:#fff;}
   .btn-primary:disabled{opacity:.6;cursor:not-allowed;}
   .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--charcoal);} .btn-ghost:hover{border-color:var(--cyan);color:var(--cyan-dark);}
