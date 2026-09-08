@@ -196,7 +196,7 @@
   /* ===================== DASHBOARD (Panel de asesores) ===================== */
   .dash-period-row{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
   .dash-period-label{font-size:12px;color:var(--ink-soft);margin:0 0 18px;}
-  .dash-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+    .dash-kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:22px;}
   .dash-kpi{background:#fff;border:1px solid var(--line);border-left:4px solid var(--cyan);border-radius:8px;padding:15px 18px;}
   .dash-kpi-num{font-size:26px;font-weight:800;color:var(--charcoal-dark);font-family:var(--font-display);line-height:1.1;}
   .dash-kpi-label{font-size:11.5px;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.3px;margin-top:5px;}
@@ -205,6 +205,7 @@
   .dash-kpi.resueltos{border-left-color:var(--st-resuelto);}
   .dash-kpi.pendientes{border-left-color:var(--st-proceso);}
   .dash-kpi.efectividad{border-left-color:var(--cyan);}
+    .dash-kpi.siguiendo{border-left-color:var(--st-atendido);}
   .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
   .dash-panel{background:#fff;border:1px solid var(--line);border-radius:8px;padding:18px 20px;}
   .dash-panel h3{margin:0 0 14px;font-size:12px;text-transform:uppercase;letter-spacing:.3px;color:var(--charcoal-dark);font-weight:700;}
@@ -660,6 +661,8 @@ const App = {
   icons: {
     trash: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>',
     paperclip: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>',
+        star: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+        starFilled: '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
   },
 
   init(){
@@ -1109,7 +1112,10 @@ const App = {
       if(k) porAsesor[k] = (porAsesor[k]||0) + 1;
     });
 
-    return { total, resueltos, pendientes, efectividad, porEstado, porTipo, porFranquicia, porAsesor };
+        const siguiendo = tickets.filter(t => (t.seguidores||[]).includes(App.currentAdvisorName)).length;
+    
+
+    return { total, resueltos, pendientes, efectividad, porEstado, porTipo, porFranquicia, porAsesor, siguiendo };
   },
 
   renderBarList(dataObj, opts){
@@ -1183,6 +1189,7 @@ const App = {
         <div class="dash-kpi resueltos"><div class="dash-kpi-num">${stats.resueltos}</div><div class="dash-kpi-label">Resueltos</div><div class="dash-kpi-sub">Resuelto + Cerrado</div></div>
         <div class="dash-kpi pendientes"><div class="dash-kpi-num">${stats.pendientes}</div><div class="dash-kpi-label">Pendientes</div><div class="dash-kpi-sub">Recibido, Atendido o En proceso</div></div>
         <div class="dash-kpi efectividad"><div class="dash-kpi-num">${stats.efectividad}%</div><div class="dash-kpi-label">% de efectividad</div><div class="dash-kpi-sub">Tickets resueltos del total</div></div>
+                <div class="dash-kpi siguiendo"><div class="dash-kpi-num">${stats.siguiendo}</div><div class="dash-kpi-label">Que sigo</div><div class="dash-kpi-sub">Tickets que estás monitoreando</div></div>
       </div>`;
 
     const estadoData = STATUSES.map(s => ({ label:s, count: stats.porEstado[s]||0, color: STATUS_COLORS[s] }));
@@ -1545,11 +1552,12 @@ const App = {
       'Tipo': t.tipo,
       'Descripción': t.descripcion,
       'Estatus': t.estado,
-      'Asesor': t.asesor || 'Sin asignar'
+      'Asesor': t.asesor || 'Sin asignar',
+              'Seguido por': (t.seguidores||[]).join(', ') || 'Nadie'
     }));
     const ws = XLSX.utils.json_to_sheet(filas);
     ws['!cols'] = [
-      {wch:14},{wch:18},{wch:22},{wch:26},{wch:12},{wch:26},{wch:13},{wch:14},{wch:45},{wch:12},{wch:18}
+      {wch:14},{wch:18},{wch:22},{wch:26},{wch:12},{wch:26},{wch:13},{wch:14},{wch:45},{wch:12},{wch:18},{wch:24}
     ];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Tickets');
@@ -1574,9 +1582,17 @@ const App = {
       return;
     }
     const yaAsignadoAOtro = t.asesor && t.asesor !== App.currentAdvisorName;
+        const siguiendo = (t.seguidores || []).includes(App.currentAdvisorName);
+        const otrosSeguidores = (t.seguidores || []).filter(s => s !== App.currentAdvisorName);
     modal.innerHTML = `
       <button class="modal-close" onclick="App.closeModal()">&times;</button>
       ${App.renderTicketDetailHTML(t)}
+            <div class="row" style="margin:12px 0;align-items:center;">
+                    <button id="btn-seguir" class="btn btn-ghost btn-sm" style="display:flex;align-items:center;gap:6px;${siguiendo?'color:var(--cyan-dark);border-color:var(--cyan);':''}" onclick="App.toggleSeguir('${folio}', ${!siguiendo})">
+                              ${siguiendo ? App.icons.starFilled : App.icons.star} ${siguiendo ? 'Siguiendo este ticket' : 'Seguir este ticket'}
+                                      </button>
+                                              ${otrosSeguidores.length ? `<span style="font-size:12px;color:var(--ink-soft);">También lo sigue: ${otrosSeguidores.join(', ')}</span>` : ''}
+                                                    </div>
       <div class="update-box">
         <div style="font-size:12px;color:var(--ink-soft);font-weight:700;text-transform:uppercase;">Actualizar ticket</div>
         ${yaAsignadoAOtro ? `
@@ -1619,6 +1635,30 @@ const App = {
       ${App.renderTicketDetailHTML(t)}`;
   },
 
+  async toggleSeguir(folio, seguir){
+        const btn = document.getElementById('btn-seguir');
+        if(btn && btn.disabled) return; // evita doble clic / doble ejecución
+        const advisor = App.getAdvisorName();
+        if(!advisor){ alert('No se identificó tu nombre de asesor. Cierra sesión y vuelve a entrar al panel.'); return; }
+        const originalHTML = btn ? btn.innerHTML : null;
+        if(btn){
+                btn.disabled = true;
+                btn.innerHTML = '<span class="spinner"></span>Guardando…';
+        }
+        try{
+                await gs('seguirTicket', folio, advisor, App.advisorCode, seguir);
+                App.showToast(seguir ? `Ahora sigues el ticket ${folio}.` : `Dejaste de seguir el ticket ${folio}.`);
+        App.openTicket(folio);
+        }catch(err){
+                console.error(err);
+                App.showToast((err && err.message) || 'No se pudo actualizar el seguimiento. Intenta de nuevo.');
+                if(btn && document.body.contains(btn)){
+                          btn.disabled = false;
+                          btn.innerHTML = originalHTML;
+                }
+        }
+  },
+  
   async attendTicket(folio){
     const btn = document.getElementById('btn-attend');
     if(btn && btn.disabled) return; // evita doble clic / doble ejecución
