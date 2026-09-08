@@ -1002,18 +1002,8 @@ const App = {
 
   renderDashboardPeriodFilters(){
     const wrap = document.getElementById('dash-period-filters');
-    const now = new Date();
-    const trimestreNum = Math.floor(now.getMonth()/3) + 1;     // 1..4
-    const semestreNum = now.getMonth() < 6 ? 1 : 2;             // 1..2
-    const opts = [
-      ["hoy","Hoy"],
-      ["mes","Este mes"],
-      ["trimestre", App.getOrdinalLabel(trimestreNum) + " Trimestre"],
-      ["semestre", App.getOrdinalLabel(semestreNum) + " Semestre"],
-      ["anio","Año " + now.getFullYear()],
-      ["personalizado","Personalizado"]
-    ];
-    wrap.innerHTML = `<select id="dash-period-select" onchange="App.setDashboardPeriod(this.value)" style="min-width:170px;">` +
+    const opts = App.buildPeriodOptions_();
+        wrap.innerHTML = `<select id="dash-period-select" onchange="App.setDashboardPeriod(this.value)" style="min-width:190px;">` +
       opts.map(([k,label]) => `<option value="${k}" ${k===App.dashboardPeriod?'selected':''}>${label}</option>`).join('') +
       `</select>`;
     document.getElementById('dash-custom-dates').style.display = App.dashboardPeriod === 'personalizado' ? 'flex' : 'none';
@@ -1024,6 +1014,84 @@ const App = {
     const map = {1:'1er', 2:'2do', 3:'3er', 4:'4to'};
     return map[n] || (n + 'to');
   },
+    getWeekStart_(d){
+          const date = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+          const day = date.getDay();
+          const diff = (day === 0) ? 6 : day - 1;
+          date.setDate(date.getDate() - diff);
+          return date;
+    },
+    buildPeriodOptions_(){
+          const now = new Date();
+          const trimestreNum = Math.floor(now.getMonth()/3) + 1;
+          const semestreNum = now.getMonth() < 6 ? 1 : 2;
+          const trimestreAnteriorNum = trimestreNum === 1 ? 4 : trimestreNum - 1;
+          const semestreAnteriorNum = semestreNum === 1 ? 2 : 1;
+          return [
+                  ["hoy","Hoy"],
+                  ["ayer","Ayer"],
+                  ["semana","Esta semana"],
+                  ["semana_pasada","Semana pasada"],
+                  ["mes","Este mes"],
+                  ["mes_anterior","Mes anterior"],
+                  ["trimestre", App.getOrdinalLabel(trimestreNum) + " Trimestre"],
+                  ["trimestre_anterior", App.getOrdinalLabel(trimestreAnteriorNum) + " Trimestre (anterior)"],
+                  ["semestre", App.getOrdinalLabel(semestreNum) + " Semestre"],
+                  ["semestre_anterior", App.getOrdinalLabel(semestreAnteriorNum) + " Semestre (anterior)"],
+                  ["anio","Año " + now.getFullYear()],
+                  ["anio_anterior","Año " + (now.getFullYear()-1)],
+                  ["personalizado","Personalizado"]
+                ];
+    },
+    computeRangeForPeriod_(period, customFrom, customTo){
+          const now = new Date();
+          const y = now.getFullYear();
+          let from, to = now;
+          const endOfDay = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59);
+          if(period === 'hoy'){
+                  from = new Date(y, now.getMonth(), now.getDate());
+          } else if(period === 'ayer'){
+                  const ayer = new Date(y, now.getMonth(), now.getDate()-1);
+                  from = ayer; to = endOfDay(ayer);
+          } else if(period === 'semana'){
+                  from = App.getWeekStart_(now);
+          } else if(period === 'semana_pasada'){
+                  const inicioEstaSemana = App.getWeekStart_(now);
+                  const inicioSemanaPasada = new Date(inicioEstaSemana); inicioSemanaPasada.setDate(inicioSemanaPasada.getDate()-7);
+                  const finSemanaPasada = new Date(inicioEstaSemana); finSemanaPasada.setDate(finSemanaPasada.getDate()-1);
+                  from = inicioSemanaPasada; to = endOfDay(finSemanaPasada);
+          } else if(period === 'mes'){
+                  from = new Date(y, now.getMonth(), 1);
+          } else if(period === 'mes_anterior'){
+                  from = new Date(y, now.getMonth()-1, 1);
+                  to = endOfDay(new Date(y, now.getMonth(), 0));
+          } else if(period === 'trimestre'){
+                  const qStartMonth = Math.floor(now.getMonth()/3)*3;
+                  from = new Date(y, qStartMonth, 1);
+          } else if(period === 'trimestre_anterior'){
+                  const qStartMonth = Math.floor(now.getMonth()/3)*3;
+                  from = new Date(y, qStartMonth-3, 1);
+                  to = endOfDay(new Date(y, qStartMonth, 0));
+          } else if(period === 'semestre'){
+                  const hStartMonth = now.getMonth() < 6 ? 0 : 6;
+                  from = new Date(y, hStartMonth, 1);
+          } else if(period === 'semestre_anterior'){
+                  const hStartMonth = now.getMonth() < 6 ? 0 : 6;
+                  from = new Date(y, hStartMonth-6, 1);
+                  to = endOfDay(new Date(y, hStartMonth, 0));
+          } else if(period === 'anio'){
+                  from = new Date(y, 0, 1);
+          } else if(period === 'anio_anterior'){
+                  from = new Date(y-1, 0, 1);
+                  to = endOfDay(new Date(y-1, 11, 31));
+          } else if(period === 'personalizado'){
+                  from = customFrom ? new Date(customFrom + 'T00:00:00') : new Date(y, 0, 1);
+                  to = customTo ? new Date(customTo + 'T23:59:59') : now;
+          } else {
+                  from = new Date(y, now.getMonth(), 1);
+          }
+          return { from, to };
+    },
   setDashboardPeriod(p){
     App.dashboardPeriod = p;
     App.renderDashboardPeriodFilters();
@@ -1047,26 +1115,7 @@ const App = {
   // mes/trimestre/semestre/año son del inicio del período natural hasta hoy
   // ("cómo vamos" en tiempo real). Personalizado usa las fechas elegidas.
   getDashboardRange(period){
-    const now = new Date();
-    const y = now.getFullYear();
-    let from, to = now;
-    if(period === 'hoy'){
-      from = new Date(y, now.getMonth(), now.getDate());
-    } else if(period === 'trimestre'){
-      const qStartMonth = Math.floor(now.getMonth()/3)*3;
-      from = new Date(y, qStartMonth, 1);
-    } else if(period === 'semestre'){
-      const hStartMonth = now.getMonth() < 6 ? 0 : 6;
-      from = new Date(y, hStartMonth, 1);
-    } else if(period === 'anio'){
-      from = new Date(y, 0, 1);
-    } else if(period === 'personalizado'){
-      from = App.dashboardCustomFrom ? new Date(App.dashboardCustomFrom + 'T00:00:00') : new Date(y, 0, 1);
-      to = App.dashboardCustomTo ? new Date(App.dashboardCustomTo + 'T23:59:59') : now;
-    } else { // "mes" (por defecto)
-      from = new Date(y, now.getMonth(), 1);
-    }
-    return { from, to };
+    return App.computeRangeForPeriod_(period, App.dashboardCustomFrom, App.dashboardCustomTo);
   },
 
   formatDashboardPeriodLabel(from, to){
@@ -1437,19 +1486,8 @@ const App = {
   // todo el historial salvo que se pida lo contrario.
   renderTicketsPeriodFilters(){
     const wrap = document.getElementById('tickets-period-filters');
-    const now = new Date();
-    const trimestreNum = Math.floor(now.getMonth()/3) + 1;
-    const semestreNum = now.getMonth() < 6 ? 1 : 2;
-    const opts = [
-      ["todos","Todas las fechas"],
-      ["hoy","Hoy"],
-      ["mes","Este mes"],
-      ["trimestre", App.getOrdinalLabel(trimestreNum) + " Trimestre"],
-      ["semestre", App.getOrdinalLabel(semestreNum) + " Semestre"],
-      ["anio","Año " + now.getFullYear()],
-      ["personalizado","Personalizado"]
-    ];
-    wrap.innerHTML = `<select id="tickets-period-select" onchange="App.setTicketsPeriod(this.value)" style="min-width:150px;">` +
+    const opts = [["todos","Todas las fechas"], ...App.buildPeriodOptions_()];
+        wrap.innerHTML = `<select id="tickets-period-select" onchange="App.setTicketsPeriod(this.value)" style="min-width:170px;">` +
       opts.map(([k,label]) => `<option value="${k}" ${k===App.ticketsPeriod?'selected':''}>${label}</option>`).join('') +
       `</select>`;
     document.getElementById('tickets-custom-dates').style.display = App.ticketsPeriod === 'personalizado' ? 'flex' : 'none';
@@ -1475,26 +1513,7 @@ const App = {
   // Igual que getDashboardRange, pero con "todos" -> sin acotar (regresa null).
   getTicketsDateRange(period){
     if(period === 'todos') return null;
-    const now = new Date();
-    const y = now.getFullYear();
-    let from, to = now;
-    if(period === 'hoy'){
-      from = new Date(y, now.getMonth(), now.getDate());
-    } else if(period === 'trimestre'){
-      const qStartMonth = Math.floor(now.getMonth()/3)*3;
-      from = new Date(y, qStartMonth, 1);
-    } else if(period === 'semestre'){
-      const hStartMonth = now.getMonth() < 6 ? 0 : 6;
-      from = new Date(y, hStartMonth, 1);
-    } else if(period === 'anio'){
-      from = new Date(y, 0, 1);
-    } else if(period === 'personalizado'){
-      from = App.ticketsCustomFrom ? new Date(App.ticketsCustomFrom + 'T00:00:00') : new Date(y, 0, 1);
-      to = App.ticketsCustomTo ? new Date(App.ticketsCustomTo + 'T23:59:59') : now;
-    } else { // "mes"
-      from = new Date(y, now.getMonth(), 1);
-    }
-    return { from, to };
+    return App.computeRangeForPeriod_(period, App.ticketsCustomFrom, App.ticketsCustomTo);
   },
 
   async renderPanelTable(){
