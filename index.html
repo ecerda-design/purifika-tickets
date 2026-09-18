@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+  <html lang="es">
+  <head>
+  <meta charset="UTF-8">
+  <title>Purifika Tickets</title>
+  <meta http-equiv="refresh" content="0; url=https://purifika-tickets.pages.dev/">
+  <script>
+  (function () {
+  var base = "/purifika-tickets";
+var path = window.location.pathname;
+if (path.indexOf(base) === 0) { path = path.slice(base.length); }
+var dest = "https://purifika-tickets.pages.dev" + path + window.location.search + window.location.hash;
+window.location.replace(dest);
+})();
+</script>
+  </head>
+  <body>
+  <p>Redirigiendo a <a href="https://purifika-tickets.pages.dev/">purifika-tickets.pages.dev</a>...</p>
+</body>
+</html>
